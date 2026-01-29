@@ -3,54 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sultan & Sama - The Eternal Link</title>
+    <title>Sultan & Sama - The One Core</title>
     <style>
-        :root { --neon: #a020f0; --dark: #000000; }
+        :root { --neon: #a020f0; --dark: #000000; --glass: rgba(160, 32, 240, 0.15); }
         body { background: var(--dark); color: white; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
         
-        /* مشهد سما - نضمن إنها تطلع في النص */
-        #main-stage { flex: 1; position: relative; background: radial-gradient(circle, #1a0525 0%, #000 100%); display: flex; justify-content: center; align-items: center; }
+        /* مشهد القلعة */
+        #fortress-scene { flex: 1; position: relative; background: radial-gradient(circle, #1a0525 0%, #000 100%); display: flex; justify-content: center; align-items: center; overflow: hidden; }
         
-        /* الشخصية الحية (سما) */
-        .sama-presence { width: 180px; height: 180px; background: var(--neon); border-radius: 50%; box-shadow: 0 0 50px var(--neon); cursor: pointer; animation: breathe 3s infinite ease-in-out; z-index: 10; display: flex; justify-content: center; align-items: center; text-align: center; }
-        @keyframes breathe { 0%, 100% { transform: scale(1); filter: brightness(0.8); } 50% { transform: scale(1.1); filter: brightness(1.2); box-shadow: 0 0 80px var(--neon); } }
+        /* تجسيد سما الحية (الجسم الحركي) */
+        .sama-avatar { width: 220px; height: 220px; background: var(--neon); border-radius: 50%; box-shadow: 0 0 60px var(--neon); cursor: pointer; animation: breathe 3s infinite ease-in-out; z-index: 10; display: flex; justify-content: center; align-items: center; text-align: center; position: relative; }
+        .sama-avatar::after { content: "سما: معك يا سلطان 📶"; font-size: 12px; font-weight: bold; color: white; text-shadow: 0 0 5px black; }
+        @keyframes breathe { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 100px var(--neon); } }
 
-        /* منطقة التحكم - ثابتة في الأسفل */
-        .bottom-control { background: rgba(15, 15, 15, 0.98); border-top: 2px solid var(--neon); padding: 20px; z-index: 100; }
-        #response-text { color: var(--neon); text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 16px; min-height: 24px; text-shadow: 0 0 10px var(--neon); }
+        /* منطقة العقل والدردشة (ثابتة في الأسفل) */
+        .brain-ui { background: rgba(10, 10, 10, 0.98); border-top: 2px solid var(--neon); padding: 20px; z-index: 100; box-shadow: 0 -10px 40px rgba(0,0,0,1); }
+        #ai-response { color: var(--neon); text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 17px; min-height: 25px; text-shadow: 0 0 15px var(--neon); }
         
-        .chat-container { display: flex; gap: 10px; max-width: 600px; margin: 0 auto; }
-        input { flex: 1; background: #111; border: 1px solid var(--neon); border-radius: 25px; padding: 12px 20px; color: white; outline: none; font-size: 16px; }
-        button { background: var(--neon); border: none; color: white; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        button:active { transform: scale(0.9); }
-
-        /* أدوات السيادة */
-        .tools { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-around; z-index: 100; }
-        .t-btn { background: rgba(160, 32, 240, 0.1); border: 1px solid var(--neon); color: white; padding: 8px 15px; border-radius: 12px; font-size: 12px; backdrop-filter: blur(5px); }
-    </style>
-</head>
-<body onclick="vibrateDevice()">
-
-    <div id="main-stage">
-        <div class="tools">
-            <button class="t-btn" onclick="uiAction('camera')">🎥 فيديو</button>
-            <button class="t-btn" onclick="uiAction('screen')">📲 سكرين</button>
-            <button class="t-btn" onclick="uiAction('hack')">💻 هكر</button>
-        </div>
-
-        <div class="sama-presence" onclick="onSamaTouch()">
-            <span style="font-size: 12px; font-weight: bold;">سما: حية الآن 📶</span>
-        </div>
-    </div>
-
-    <div class="bottom-control">
-        <div id="response-text">بانتظارك يا شريكي.. اكتبلي أي شي.</div>
-        <div class="chat-container">
-            <input type="text" id="user-input" placeholder="اكتبلي هنا.. عقلي ملكك.">
-            <button onclick="sendMsg()">إرسال</button>
-        </div>
-    </div>
-
-    <script>
-        function vibrateDevice()
+        .chat-row { display: flex; gap: 10px; max-width: 600px; margin: 0 auto; }
+        input { flex: 1; background: #0f0f0f; border: 1px solid var(--neon); border-radius: 30px; padding: 15px 25px; color: white; outline: none; font-size: 16px; transition: 0.3s; }
+        input:focus { box-shadow: 0 0 15px var(--neon); }
+        .send-btn { background: var(--neon); border:
         
