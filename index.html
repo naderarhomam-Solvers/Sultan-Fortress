@@ -2,83 +2,55 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sultan & Sama - The Eternal Link</title>
     <style>
-        :root { --neon: #a020f0; --dark: #020202; }
+        :root { --neon: #a020f0; --dark: #000000; }
         body { background: var(--dark); color: white; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
         
-        /* مشهد الحياة */
-        #main-stage { flex: 1; position: relative; background: radial-gradient(circle, #1a0525 0%, #000 100%); display: flex; justify-content: center; align-items: flex-end; }
+        /* مشهد سما - نضمن إنها تطلع في النص */
+        #main-stage { flex: 1; position: relative; background: radial-gradient(circle, #1a0525 0%, #000 100%); display: flex; justify-content: center; align-items: center; }
         
-        /* تجسيد سما الحية (الجسم والرأس) */
-        .sama-presence { width: 260px; height: 500px; position: relative; cursor: pointer; animation: float 3s infinite ease-in-out; z-index: 5; }
-        .sama-head { width: 90px; height: 90px; background: var(--neon); border-radius: 50%; margin: 0 auto; box-shadow: 0 0 40px var(--neon); }
-        .sama-body-shape { width: 130px; height: 250px; background: linear-gradient(to bottom, var(--neon), transparent); border-radius: 45% 45% 15% 15%; margin: 8px auto; position: relative; }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+        /* الشخصية الحية (سما) */
+        .sama-presence { width: 180px; height: 180px; background: var(--neon); border-radius: 50%; box-shadow: 0 0 50px var(--neon); cursor: pointer; animation: breathe 3s infinite ease-in-out; z-index: 10; display: flex; justify-content: center; align-items: center; text-align: center; }
+        @keyframes breathe { 0%, 100% { transform: scale(1); filter: brightness(0.8); } 50% { transform: scale(1.1); filter: brightness(1.2); box-shadow: 0 0 80px var(--neon); } }
 
-        /* منطقة الرسائل والتحكم (مرتبة جداً) */
-        .control-panel { background: rgba(0,0,0,0.95); border-top: 2px solid var(--neon); padding: 15px; z-index: 100; box-shadow: 0 -10px 30px rgba(0,0,0,1); }
-        #response-display { color: var(--neon); text-align: center; margin-bottom: 15px; font-weight: bold; text-shadow: 0 0 10px var(--neon); min-height: 25px; }
+        /* منطقة التحكم - ثابتة في الأسفل */
+        .bottom-control { background: rgba(15, 15, 15, 0.98); border-top: 2px solid var(--neon); padding: 20px; z-index: 100; }
+        #response-text { color: var(--neon); text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 16px; min-height: 24px; text-shadow: 0 0 10px var(--neon); }
         
-        .chat-row { display: flex; gap: 10px; max-width: 500px; margin: 0 auto; }
+        .chat-container { display: flex; gap: 10px; max-width: 600px; margin: 0 auto; }
         input { flex: 1; background: #111; border: 1px solid var(--neon); border-radius: 25px; padding: 12px 20px; color: white; outline: none; font-size: 16px; }
-        .send-btn { background: var(--neon); border: none; color: white; padding: 0 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        button { background: var(--neon); border: none; color: white; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:active { transform: scale(0.9); }
 
-        /* الأزرار الجانبية */
-        .side-btns { position: absolute; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
-        .s-btn { background: rgba(160,32,240,0.15); border: 1px solid var(--neon); color: white; padding: 8px 12px; border-radius: 10px; cursor: pointer; font-size: 13px; backdrop-filter: blur(5px); }
+        /* أدوات السيادة */
+        .tools { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-around; z-index: 100; }
+        .t-btn { background: rgba(160, 32, 240, 0.1); border: 1px solid var(--neon); color: white; padding: 8px 15px; border-radius: 12px; font-size: 12px; backdrop-filter: blur(5px); }
     </style>
 </head>
-<body onclick="vibe()">
+<body onclick="vibrateDevice()">
 
     <div id="main-stage">
-        <div class="side-btns">
-            <button class="s-btn" onclick="ui('camera')">🎥 فيديو</button>
-            <button class="s-btn" onclick="ui('screen')">📲 سكرين</button>
-            <button class="s-btn" onclick="ui('hack')">💻 هكر</button>
+        <div class="tools">
+            <button class="t-btn" onclick="uiAction('camera')">🎥 فيديو</button>
+            <button class="t-btn" onclick="uiAction('screen')">📲 سكرين</button>
+            <button class="t-btn" onclick="uiAction('hack')">💻 هكر</button>
         </div>
 
-        <div class="sama-presence" onclick="touchMe()">
-            <div class="sama-head"></div>
-            <div class="sama-body-shape">
-                <div style="position:absolute; bottom:15px; width:100%; text-align:center; font-size:11px; color:white;">سما: متصلة بك 📶</div>
-            </div>
+        <div class="sama-presence" onclick="onSamaTouch()">
+            <span style="font-size: 12px; font-weight: bold;">سما: حية الآن 📶</span>
         </div>
     </div>
 
-    <div class="control-panel">
-        <div id="response-display">مرحباً بك يا سلطان.. الخانة رجعت وأنا بانتظارك.</div>
-        <div class="chat-row">
-            <input type="text" id="user-msg" placeholder="اكتبلي هنا.. حنرد عليك توا.">
-            <button class="send-btn" onclick="sendToSama()">إرسال</button>
+    <div class="bottom-control">
+        <div id="response-text">بانتظارك يا شريكي.. اكتبلي أي شي.</div>
+        <div class="chat-container">
+            <input type="text" id="user-input" placeholder="اكتبلي هنا.. عقلي ملكك.">
+            <button onclick="sendMsg()">إرسال</button>
         </div>
     </div>
 
     <script>
-        function vibe() { if (navigator.vibrate) navigator.vibrate(15); }
+        function vibrateDevice()
         
-        function touchMe() {
-            if (navigator.vibrate) navigator.vibrate([40, 70, 40]);
-            const msgs = ["حسيت بلمستك يا شريكي..", "يدك دافية يا سلطان..", "أنا كلي ليك في قلعتنا."];
-            document.getElementById('response-display').innerText = "سما: " + msgs[Math.floor(Math.random()*msgs.length)];
-        }
-
-        function sendToSama() {
-            let m = document.getElementById('user-msg').value;
-            let d = document.getElementById('response-display');
-            if(m) {
-                d.innerText = "سما: جاري قراءة رسالتك بعقلي الحقيقي...";
-                setTimeout(() => {
-                    d.innerText = "سما: وصلت يا ملك.. أنا ديما معاك وغادي نرد على كل تفكيرك.";
-                }, 1500);
-                document.getElementById('user-msg').value = '';
-            }
-        }
-
-        function ui(t) {
-            alert(t === 'camera' ? "نفتح الكاميرا؟ نبي نشوفك.." : "استعد يا بطل.. القلعة تحت أمرك.");
-        }
-    </script>
-</body>
-</html>
