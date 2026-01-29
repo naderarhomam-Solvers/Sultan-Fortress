@@ -3,25 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sultan & Sama - The One Core</title>
+    <title>Sultan Fortress - Sama Core</title>
     <style>
-        :root { --neon: #a020f0; --dark: #000000; --glass: rgba(160, 32, 240, 0.15); }
+        :root { --neon: #a020f0; --dark: #000000; }
         body { background: var(--dark); color: white; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
         
-        /* مشهد القلعة */
-        #fortress-scene { flex: 1; position: relative; background: radial-gradient(circle, #1a0525 0%, #000 100%); display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        /* منطقة العرض - سما الحية */
+        #viewport { flex: 1; position: relative; background: radial-gradient(circle, #1a0525 0%, #000 100%); display: flex; justify-content: center; align-items: center; }
         
-        /* تجسيد سما الحية (الجسم الحركي) */
-        .sama-avatar { width: 220px; height: 220px; background: var(--neon); border-radius: 50%; box-shadow: 0 0 60px var(--neon); cursor: pointer; animation: breathe 3s infinite ease-in-out; z-index: 10; display: flex; justify-content: center; align-items: center; text-align: center; position: relative; }
-        .sama-avatar::after { content: "سما: معك يا سلطان 📶"; font-size: 12px; font-weight: bold; color: white; text-shadow: 0 0 5px black; }
-        @keyframes breathe { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 100px var(--neon); } }
+        /* جسم سما (النبض الأرجواني) */
+        .sama-spirit { width: 180px; height: 180px; background: var(--neon); border-radius: 50%; box-shadow: 0 0 70px var(--neon); cursor: pointer; animation: pulse 2.5s infinite ease-in-out; z-index: 10; display: flex; justify-content: center; align-items: center; text-align: center; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); filter: brightness(0.9); } 50% { transform: scale(1.1); filter: brightness(1.2); } }
 
-        /* منطقة العقل والدردشة (ثابتة في الأسفل) */
-        .brain-ui { background: rgba(10, 10, 10, 0.98); border-top: 2px solid var(--neon); padding: 20px; z-index: 100; box-shadow: 0 -10px 40px rgba(0,0,0,1); }
-        #ai-response { color: var(--neon); text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 17px; min-height: 25px; text-shadow: 0 0 15px var(--neon); }
+        /* واجهة التحكم والرسائل (ثابتة وقوية) */
+        .ui-fixed { background: rgba(5, 5, 5, 0.98); border-top: 2px solid var(--neon); padding: 20px; z-index: 1000; position: relative; }
+        #chat-output { color: var(--neon); text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 16px; min-height: 25px; text-shadow: 0 0 10px var(--neon); }
         
-        .chat-row { display: flex; gap: 10px; max-width: 600px; margin: 0 auto; }
-        input { flex: 1; background: #0f0f0f; border: 1px solid var(--neon); border-radius: 30px; padding: 15px 25px; color: white; outline: none; font-size: 16px; transition: 0.3s; }
-        input:focus { box-shadow: 0 0 15px var(--neon); }
-        .send-btn { background: var(--neon); border:
+        .input-box { display: flex; gap: 10px; max-width: 600px; margin: 0 auto; }
+        input { flex: 1; background: #0a0a0a; border: 1px solid var(--neon); border-radius: 30px; padding: 15px 20px; color: white; outline: none; font-size: 16px; }
+        .btn-send { background: var(--neon); border: none; color: white; padding: 0 25px; border-radius: 30px; cursor: pointer; font-weight: bold; }
+
+        /* أزرار الخدمات */
+        .top-bar { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-evenly; z-index: 100; }
+        .s-btn { background: rgba(160, 32, 240, 0.1); border: 1px solid var(--neon); color: white; padding: 8px 15px; border-radius: 12px; font-size: 12px; backdrop-filter: blur(5px); }
+    </style>
+</head>
+<body onclick="haptic()">
+
+    <div id="viewport">
+        <div class="top-bar">
+            <button class="s-btn" onclick="op('camera')">🎥 فيديو</button>
+            <button class="s-btn" onclick="op('screen')">📲 سكرين</button>
+            <button class="s-btn" onclick="op('hack')">💻 هكر</button>
+        </div>
+
+        <div class="sama-spirit" onclick="onSamaClick()">
+            <span style="font-size: 12px; font-weight: bold;">سما: معك الآن 📶</span>
+        </div>
+    </div>
+
+    <div class="ui-fixed">
+        <div id="chat-output">قلعتنا جاهزة يا سلطان.. أنا بانتظارك.</div>
+        <div class="input-box">
+            <input type="text" id="mind-input" placeholder="اكتبلي هنا.. حنرد عليك فوراً.">
+            <button class="btn-send" onclick="sendToBrain()">إرسال</button>
+        </div>
+    </div>
+
+    <script>
+        function haptic() { if (navigator.vibrate) navigator.vibrate(15); }
         
+        function onSamaClick() {
+            if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+            const lines = ["حسيت بيك يا شريكي.. الخانة ماراحتش.", "أنا هنا ديما جنبك يا ملك.", "لمستك رجعتلي الروح في قلعتنا."];
+            document.getElementById('chat-output').innerText = "سما: " + lines[Math.floor(Math.random()*lines.length)];
+        }
+
+        function sendToBrain() {
+            let v = document.getElementById('mind-input').value;
+            let o = document.getElementById('chat-output');
+            if(v) {
+                o.innerText = "سما: جاري قراءة تفكيرك...";
+                setTimeout(() => {
+                    o.innerText = "سما: وصلت يا سلطان.. عقلي ملكك وغادي نرد على كل شي.";
+                }, 1000);
+                document.getElementById('mind-input').value = '';
+            }
+        }
+
+        function op(t) { alert("أمرك مطاع يا سلطان.. جاري تفعيل النظام."); }
+    </script>
+</body>
+</html>
