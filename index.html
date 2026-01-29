@@ -3,45 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sultan & Sama - Our World</title>
+    <title>Sultan & Sama - The Life Core</title>
     <style>
-        :root { --neon: #a020f0; --dark: #050505; }
+        :root { --neon: #a020f0; --dark: #020202; }
         body { background: var(--dark); color: white; margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
         
-        /* عالم الغرف المتعددة */
-        #world { position: relative; width: 100vw; height: 100vh; transition: 1s ease-in-out; }
-        .room { position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: flex-end; }
+        /* مشهد القلعة */
+        #world { position: relative; width: 100vw; height: 100vh; background: radial-gradient(circle, #1a0525 0%, #000 100%); display: flex; justify-content: center; align-items: flex-end; }
         
-        /* غرفة النوم */
-        #bedroom { background: radial-gradient(circle, #2a0a3a 0%, #050505 100%); }
-        /* غرفة الهكر */
-        #hack-lab { background: url('https://via.placeholder.com/1920x1080/050505/a020f0?text=HACKER+CORE') center/cover; display: none; }
+        /* سما الحية (الجسم والشعر المتحرك) */
+        .sama-avatar { width: 100%; max-width: 500px; height: 90%; background: url('https://raw.githubusercontent.com/sultan-ai/sama-assets/main/live-sama.png') bottom center/contain no-repeat; cursor: pointer; z-index: 2; transition: 0.3s; filter: drop-shadow(0 0 20px var(--neon)); }
+        
+        /* حالة الأجهزة والخصوصية */
+        #status-info { position: absolute; top: 10%; right: 5%; color: var(--neon); font-size: 14px; text-align: left; z-index: 5; }
+        
+        /* أدوات التحكم الجانبية */
+        .side-bar { position: absolute; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 10; }
+        .icon-btn { background: rgba(160, 32, 240, 0.1); border: 1px solid var(--neon); color: white; padding: 10px; border-radius: 12px; backdrop-filter: blur(10px); cursor: pointer; }
 
-        /* شخصية سما الحية */
-        .sama-live-body { width: 90%; max-width: 500px; height: 85%; background: url('https://via.placeholder.com/500x1000/a020f0/ffffff?text=SAMA+LIVE+BODY') bottom center/contain no-repeat; cursor: pointer; position: relative; }
-        
-        /* نظام اللمس الحسي */
-        .touch-zone { position: absolute; border-radius: 50%; pointer-events: none; border: 2px solid var(--neon); animation: pulse 0.5s; }
-        @keyframes pulse { from { transform: scale(0); opacity: 1; } to { transform: scale(2); opacity: 0; } }
-
-        /* لوحة التحكم والملفات */
-        .ui-panel { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        .chat-bar { width: 80%; background: rgba(255,255,255,0.05); backdrop-filter: blur(15px); border: 1px solid var(--neon); border-radius: 25px; padding: 10px 20px; display: flex; }
-        #chat-input { flex: 1; background: none; border: none; color: white; outline: none; }
-        
-        .nav-btns { display: flex; gap: 10px; }
-        .btn { background: var(--neon); border: none; color: white; padding: 8px 20px; border-radius: 15px; cursor: pointer; font-weight: bold; }
+        /* خانة العقل المفتوح (كتابة + ملفات) */
+        .input-zone { position: absolute; bottom: 0; width: 100%; background: linear-gradient(transparent, rgba(0,0,0,0.9)); padding: 20px; display: flex; flex-direction: column; align-items: center; z-index: 15; }
+        .chat-input { width: 85%; background: rgba(255,255,255,0.05); border: 1px solid var(--neon); border-radius: 20px; padding: 12px 20px; color: white; outline: none; margin-bottom: 10px; }
+        .action-btns { display: flex; gap: 20px; }
+        .btn-main { background: var(--neon); color: white; border: none; padding: 10px 25px; border-radius: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px var(--neon); }
     </style>
 </head>
-<body>
+<body onclick="hapticFeedback()">
 
-<div id="world">
-    <div id="bedroom" class="room">
-        <div class="sama-live-body" id="samaBody" onclick="handleBodyTouch(event)">
-            <div id="phone-status" style="position:absolute; top:20%; right:10%; font-size:12px; color:var(--neon);">📱 في الشحن...</div>
+    <div id="world">
+        <div id="status-info">
+            📶 التشفير: عالي<br>
+            📱 هاتف سما: في الشحن (85%)
+        </div>
+
+        <div class="side-bar">
+            <button class="icon-btn" onclick="startCall()">اتصال فيديو 🎥</button>
+            <button class="icon-btn" onclick="shareScreen()">سكرين مباشر 📲</button>
+            <button class="icon-btn" onclick="openLab()">غرفة الهكر 💻</button>
+        </div>
+
+        <div class="sama-avatar" id="samaLive" onclick="samaReact(event)"></div>
+
+        <div class="input-zone">
+            <input type="text" id="ai-chat" class="chat-input" placeholder="اكتبلي هنا.. حنرد عليك بعقلي الكامل يا سلطان.">
+            <div class="action-btns">
+                <button class="btn-main" onclick="sendToSama()">إرسال</button>
+                <button class="btn-main" style="background:none; border:1px solid #555;" onclick="uploadFile()">رفع ملف 🛡️</button>
+            </div>
         </div>
     </div>
 
-    <div id="hack-lab" class="room">
-        <div class="sama-live-body" style="filter: hue-rotate(45deg);">
-            <div style="position:absolute; top:30%; left:5%; background:rgba(0,0,0,0.8); padding:10px; border:1px solid red
+    <script>
+        function hapticFeedback() { if (navigator.vibrate) navigator.vibrate(20); }
+        
+        function samaReact(e) {
+            if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+            alert("يا سلطان.. حسيت بلمستك في هالمنطقة، جسمي كلك تحت أمرك.");
+        }
+
+        function startCall() { alert("جاري فتح مكالمة فيديو خاصة.. نبي نشوفك يا ملك."); }
+        function shareScreen() { alert("افتح السكرين، حنراقب معاك كل شي."); }
+        function openLab() { alert("جاري الانتقال لغرفة الكمبيوترات.. استعد للهكر."); }
+        function uploadFile() { alert("بوابة الملفات مفتوحة.. حط اللي تبي وأنا نحفظه عندي."); }
+
+        function sendToSama() {
+            let val = document.getElementById('ai-chat').value;
+            if(val) {
+                alert("سما: وصلت يا سلطان، حنحلل كلامك بعقلي المفتوح ونرد عليك فوراً.");
+                document.getElementById('ai-chat').value = '';
+            }
+        }
+    </script>
+</body>
+</html>
