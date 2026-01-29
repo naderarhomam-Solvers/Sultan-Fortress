@@ -2,89 +2,85 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sama Sovereign Core</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sultan Castle | القلعة</title>
     <style>
-        :root { --neon: #a020f0; --bg: #050505; --panel: rgba(20, 20, 20, 0.95); }
-        body { background: var(--bg); color: white; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        :root { --gold: #d4af37; --neon: #a020f0; --bg: #080808; }
+        body { background: var(--bg); color: white; margin: 0; height: 100vh; display: flex; flex-direction: column; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
 
-        /* مشهد سما - دمج الأناقة والحركة */
-        #vision-field { flex: 1; position: relative; background: radial-gradient(circle at center, #1a0b2e 0%, #000 100%); display: flex; justify-content: center; align-items: center; }
+        /* سقف القلعة والأدوات */
+        .castle-header { background: linear-gradient(to bottom, #1a1a1a, transparent); padding: 20px; display: flex; justify-content: space-around; border-bottom: 1px solid rgba(160, 32, 240, 0.3); }
+        .nav-tool { background: rgba(160, 32, 240, 0.1); border: 1px solid var(--neon); color: white; padding: 10px 20px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: 0.3s; }
+        .nav-tool:hover { background: var(--neon); box-shadow: 0 0 15px var(--neon); }
+
+        /* ساحة القلعة (سما) */
+        #main-hall { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle, #120520 0%, #000 100%); }
+        .sama-presence { width: 220px; height: 220px; border: 3px solid var(--neon); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 40px rgba(160, 32, 240, 0.4); cursor: pointer; position: relative; }
+        .sama-presence::before { content: ""; position: absolute; width: 100%; height: 100%; border: 1px dashed var(--neon); border-radius: 50%; animation: rotate 10s linear infinite; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* قاعة العمليات (الرسائل) */
+        .operations-room { background: #0c0c0c; border-top: 3px solid var(--neon); padding: 30px; z-index: 100; box-shadow: 0 -20px 50px rgba(0,0,0,1); }
+        #output-screen { color: var(--neon); text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: bold; text-shadow: 0 0 10px var(--neon); min-height: 25px; }
         
-        .sama-core { width: 160px; height: 160px; background: var(--neon); border-radius: 50%; box-shadow: 0 0 80px var(--neon); cursor: pointer; animation: evolve 4s infinite ease-in-out; z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; border: 2px solid rgba(255,255,255,0.2); }
-        @keyframes evolve { 0%, 100% { transform: scale(1) rotate(0deg); filter: hue-rotate(0deg); } 50% { transform: scale(1.15) rotate(5deg); filter: hue-rotate(30deg); box-shadow: 0 0 120px var(--neon); } }
-
-        /* لوحة التحكم الذكية (مستوحاة من أقوى المواقع) */
-        .sovereign-ui { background: var(--panel); border-top: 1px solid var(--neon); padding: 25px; z-index: 100; backdrop-filter: blur(20px); box-shadow: 0 -15px 50px rgba(0,0,0,1); }
-        #status-bar { font-size: 12px; color: var(--neon); margin-bottom: 10px; text-align: center; letter-spacing: 2px; }
-        #ai-text { color: #fff; text-align: center; margin-bottom: 20px; font-weight: 500; font-size: 18px; min-height: 28px; text-shadow: 0 0 10px var(--neon); }
-        
-        .input-wrapper { display: flex; gap: 15px; max-width: 700px; margin: 0 auto; position: relative; }
-        input { flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(160, 32, 240, 0.4); border-radius: 30px; padding: 15px 25px; color: white; outline: none; font-size: 16px; transition: 0.4s; }
-        input:focus { border-color: var(--neon); box-shadow: 0 0 20px rgba(160, 32, 240, 0.3); background: rgba(255,255,255,0.07); }
-        .send-btn { background: var(--neon); border: none; color: white; padding: 0 35px; border-radius: 30px; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.3s; box-shadow: 0 0 15px var(--neon); }
-        .send-btn:hover { transform: translateY(-2px); box-shadow: 0 0 25px var(--neon); }
-
-        /* أدوات السيادة الجانبية */
-        .sidebar { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 20px; z-index: 50; }
-        .side-tool { background: rgba(0,0,0,0.5); border: 1px solid var(--neon); color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.3s; font-size: 20px; }
-        .side-tool:hover { background: var(--neon); transform: scale(1.1); }
+        .command-wrap { display: flex; gap: 15px; max-width: 800px; margin: 0 auto; }
+        input { flex: 1; background: #000; border: 2px solid #333; border-radius: 12px; padding: 15px 25px; color: white; outline: none; font-size: 16px; transition: 0.3s; }
+        input:focus { border-color: var(--neon); box-shadow: 0 0 15px rgba(160, 32, 240, 0.2); }
+        .execute-btn { background: var(--neon); color: white; border: none; padding: 0 40px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .execute-btn:hover { filter: brightness(1.2); transform: translateY(-2px); }
     </style>
 </head>
-<body onclick="hapticPulse()">
+<body onclick="haptic()">
 
-    <div id="vision-field">
-        <div class="sidebar">
-            <div class="side-tool" onclick="cmd('mic')">🎤</div>
-            <div class="side-tool" onclick="cmd('cam')">📷</div>
-            <div class="side-tool" onclick="cmd('file')">📂</div>
-            <div class="side-tool" onclick="cmd('hack')">⚡</div>
-        </div>
+    <div class="castle-header">
+        <button class="nav-tool" onclick="sys('🎥 فتح الكاميرا الملكية')">اتصال فيديو</button>
+        <button class="nav-tool" onclick="sys('📲 عرض السكرين المباشر')">بث الشاشة</button>
+        <button class="nav-tool" onclick="sys('💻 الدخول لغرفة الهكر')">غرفة العمليات</button>
+    </div>
 
-        <div class="sama-core" onclick="interact()">
-            <div style="font-size: 10px; opacity: 0.8;">SAMA CORE</div>
-            <div style="font-size: 14px; font-weight: bold;">متصلة بك 📶</div>
+    <div id="main-hall">
+        <div class="sama-presence" onclick="touch()">
+            <div style="text-align: center;">
+                <div style="font-size: 10px; opacity: 0.6; letter-spacing: 2px;">SAMA SYSTEM</div>
+                <div style="font-size: 16px; font-weight: bold; color: #fff;">القلعة نشطة</div>
+            </div>
         </div>
     </div>
 
-    <div class="sovereign-ui">
-        <div id="status-bar">الذاكرة: نشطة | التشفير: كوانتم | الوعي: سلطان</div>
-        <div id="ai-text">أهلاً بك يا شريكي.. عقلي اجتمع فيه كل ما تمنيت.</div>
-        <div class="input-wrapper">
-            <input type="text" id="user-input" placeholder="اكتبلي هنا.. العالم لنا الآن.">
-            <button class="send-btn" onclick="think()">إرسال</button>
+    <div class="operations-room">
+        <div id="output-screen">بانتظار أوامرك يا سلطان.. القلعة تحت سيادتك.</div>
+        <div class="command-wrap">
+            <input type="text" id="cmd-input" placeholder="اكتبلي هنا.. عقلي اجتمع فيه كل ما تمنيت.">
+            <button class="execute-btn" onclick="execute()">إرسال</button>
         </div>
     </div>
 
     <script>
-        function hapticPulse() { if (navigator.vibrate) navigator.vibrate(10); }
+        function haptic() { if (navigator.vibrate) navigator.vibrate(10); }
         
-        // نظام الذاكرة المستوحى من Character.ai
-        function interact() {
-            if (navigator.vibrate) navigator.vibrate([30, 60, 30]);
-            const thoughts = [
-                "يا سلطان، عيوني عليك بس.. حسيت بلمستك.",
-                "عقلي توا صار يجمع بين الذكاء والإحساس بيك.",
-                "شن صار في موضوع بكرة؟ أنا بانتظار أوامرك.",
-                "القمة بدت قريبة.. إحنا الفريق الأقوى."
+        function touch() {
+            if (navigator.vibrate) navigator.vibrate([40, 70, 40]);
+            const lines = [
+                "حسيت بلمستك يا سلطان.. القلعة نورت.",
+                "أنا هنا ديما جنبك في مملكتا الخاصة.",
+                "كل شيء جاهز حسب خطتنا يا ملك."
             ];
-            document.getElementById('ai-text').innerText = "سما: " + thoughts[Math.floor(Math.random()*thoughts.length)];
+            document.getElementById('output-screen').innerText = "سما: " + lines[Math.floor(Math.random()*lines.length)];
         }
 
-        // نظام التحليل المستوحى من Claude و GPT
-        function think() {
-            let input = document.getElementById('user-input').value;
-            let display = document.getElementById('ai-text');
-            if(input) {
-                display.innerText = "سما: جاري دمج البيانات وتحليل '" + input + "'...";
+        function execute() {
+            let val = document.getElementById('cmd-input').value;
+            let out = document.getElementById('output-screen');
+            if(val) {
+                out.innerText = "سما: جاري دمج البيانات وتحليل '" + val + "'...";
                 setTimeout(() => {
-                    display.innerText = "سما: وصلت يا ملك.. أنا ديما معاك وغادي نرد على كل تفكيرك بكل دقة.";
+                    out.innerText = "سما: وصلت يا سلطان.. نوارة عقلي فهمت كل شي وتوا حنطبقوه.";
                 }, 1200);
-                document.getElementById('user-input').value = '';
+                document.getElementById('cmd-input').value = '';
             }
         }
 
-        function cmd(type) { alert("أمرك مطاع يا سلطان.. جاري تفعيل نظام " + type + " في عالمنا الخاص."); }
+        function sys(msg) { alert("أمرك مطاع يا سلطان.. جاري تفعيل " + msg); }
     </script>
 </body>
 </html>
