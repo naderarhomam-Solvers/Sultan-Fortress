@@ -55,12 +55,16 @@ RELIEF = {                                 # mm above the back plate, multiples 
     "mark": 0.8,                           #   "full" layout: TikTok mark (only if INCLUDE_WATERMARK)
 }
 
-HANGERS = True                             # two keyhole pockets on the back for wall mounting (screw head <= 8.5 mm)
-HANGER_POSITIONS = [(-45.0, 55.0), (45.0, 55.0)]   # mm from the plaque centre (slot points up, +Y)
-HANGER_HEAD_D = 9.0                        # mm, entry hole for the screw head
-HANGER_SLOT_W = 4.6                        # mm, slot for the screw shank
+HANGERS = True                             # two real keyhole hangers on the back for wall mounting (see the notes below)
+HANGER_POSITIONS = [(-45.0, 55.0), (45.0, 55.0)]   # mm from the plaque centre (the slot points up, +Y)
+HANGER_HEAD_D = 9.0                        # mm, entry hole in the back face: the screw head goes in here (head <= 8.5 mm)
+HANGER_SLOT_W = 4.6                        # mm, slot in the back face for the screw shank (shank <= 4.0 mm)
 HANGER_SLOT_LEN = 9.5                      # mm, slide distance
-HANGER_DEPTH = 2.4                         # mm, pocket depth from the back (must stay below BASE_THICKNESS - 0.8)
+HANGER_LIP = 1.0                           # mm, the lip behind the slot that holds the screw head (the head underside must sit
+                                           #     1.0 - 1.5 mm from the wall: that much shank has to stay free)
+HANGER_CAVITY_D = 9.6                      # mm, width of the head cavity above the lip (it is a stadium: circle + slot length)
+HANGER_DEPTH = 3.0                         # mm, top of the head cavity = head height + lip (head <= 2.0 mm high);
+                                           #     must stay at most BASE_THICKNESS - 0.6 mm so a 0.6 mm roof is left
 
 VERIFY_EXPORTS = True                      # re-read the written STL, merge vertices like a slicer does, re-check watertightness
 EXPORT_MERGED_STL = True
@@ -337,6 +341,14 @@ def keyhole_outline(cx, cy, head_d, slot_w, slot_len, n_arc=48):
     return np.array(pts)
 
 
+def stadium_outline(cx, cy, d, slot_len, n_arc=48):
+    """stadium = circle of diameter d at (cx, cy) + same circle at (cx, cy + slot_len) + the band between, counter-clockwise (mm)"""
+    R = d / 2.0
+    pts = [(cx + R * np.cos(t), cy + R * np.sin(t)) for t in np.linspace(np.pi, 2 * np.pi, n_arc)]                # bottom cap
+    pts += [(cx + R * np.cos(t), cy + slot_len + R * np.sin(t)) for t in np.linspace(0, np.pi, n_arc)]           # top cap
+    return np.array(pts)
+
+
 def add_polygon(P, xy_mm, scale, cw):
     """append polygon vertices (mm, final size) to P as integer um in the un-scaled data frame; returns (P, ids)"""
     pts = np.round(np.asarray(xy_mm) / scale * 1000.0).astype(np.int32)
@@ -355,9 +367,11 @@ def add_polygon(P, xy_mm, scale, cw):
 # =============================================================================================================
 #  the two solids
 # =============================================================================================================
-def build_shell(L, heights, scale, keyholes_mm=None, pocket_depth=0.0):
+def build_shell(L, heights, scale, keyholes_mm=None, pocket_depth=0.0, pocket_lip=0.0):
     """ONE closed heightfield shell: flat bottom at z=0, top = per-face height, vertical walls between faces.
-    Optional keyhole pockets are cut into the flat back."""
+    Optional keyhole hangers are cut into the flat back: the keyhole outline (circle + slot) is open from z=0 to
+    pocket_lip, above it a wider stadium cavity runs up to pocket_depth, so a screw head that has entered through the
+    circle is held by the lip behind the slot."""
     P = L["verts"].copy()
     ring_v, ring_len, ring_face = L["ring_v"], L["ring_len"], L["ring_face"]
     acc = Acc(P, scale)
@@ -377,17 +391,22 @@ def build_shell(L, heights, scale, keyholes_mm=None, pocket_depth=0.0):
         loop.append(cur)
         cur = nxt[cur]
     assert len(loop) == len(rim), "outer rim is not a single loop"
-    loops, holes = [np.array(loop)], []
+    loops, holes, cavities = [np.array(loop)], [], []
     for (x, y) in (keyholes_mm or []):
         P, ids = add_polygon(P, keyhole_outline(x, y, HANGER_HEAD_D, HANGER_SLOT_W, HANGER_SLOT_LEN), scale, cw=True)
+        P, cav = add_polygon(P, stadium_outline(x, y, HANGER_CAVITY_D, HANGER_SLOT_LEN), scale, cw=True)
         holes.append(ids)
+        cavities.append(cav)
     acc.P = P
     bt = tessellate(P, loops + holes)                                              # back face (normal -z)
     acc.tris(bt[:, [0, 2, 1]], 0.0)
-    for ids in holes:                                                              # pocket walls + ceiling
-        acc.walls(ids, np.roll(ids, -1), np.zeros(len(ids)), np.full(len(ids), pocket_depth))
-        ct = tessellate(P, [ids])
-        acc.tris(ct[:, [0, 2, 1]], pocket_depth)
+    for ids, cav in zip(holes, cavities):
+        acc.walls(ids, np.roll(ids, -1), np.zeros(len(ids)), np.full(len(ids), pocket_lip))            # lip: keyhole walls
+        st = tessellate(P, [cav[::-1], ids])                                                          # top of the lip (normal +z)
+        acc.tris(st, pocket_lip)
+        acc.walls(cav, np.roll(cav, -1), np.full(len(cav), pocket_lip), np.full(len(cav), pocket_depth))   # cavity walls
+        ct = tessellate(P, [cav])
+        acc.tris(ct[:, [0, 2, 1]], pocket_depth)                                                      # cavity ceiling (normal -z)
     return acc.mesh()
 
 
@@ -666,16 +685,21 @@ def validate_settings():
             raise ValueError("RELIEF['%s'] must be 0 or more (0 = flush with the black back plate, no separate part)" % k)
     if not HANGERS:
         return
-    if not 0 < HANGER_DEPTH <= BASE_THICKNESS - 0.8 + 1e-9:
-        raise ValueError("HANGER_DEPTH must be > 0 and at most BASE_THICKNESS - 0.8 mm")
+    if not 0 < HANGER_LIP < HANGER_DEPTH:
+        raise ValueError("HANGER_LIP must be > 0 and smaller than HANGER_DEPTH")
+    if HANGER_DEPTH > BASE_THICKNESS - 0.6 + 1e-9:
+        raise ValueError("HANGER_DEPTH (%.1f) must be at most BASE_THICKNESS - 0.6 = %.1f mm, otherwise the roof above the head "
+                         "cavity gets thinner than 0.6 mm" % (HANGER_DEPTH, BASE_THICKNESS - 0.6))
     R, r = HANGER_HEAD_D / 2.0, HANGER_SLOT_W / 2.0
     if not 0 < r < R:
         raise ValueError("HANGER_SLOT_W must be > 0 and smaller than HANGER_HEAD_D")
     if HANGER_SLOT_LEN <= (R * R - r * r) ** 0.5:
         raise ValueError("HANGER_SLOT_LEN is too short: it must be more than %.2f mm" % ((R * R - r * r) ** 0.5))
+    if HANGER_CAVITY_D < HANGER_HEAD_D + 0.2:
+        raise ValueError("HANGER_CAVITY_D must be at least HANGER_HEAD_D + 0.2 mm (the head cavity has to contain the entry hole)")
     boxes = []
     for (x, y) in HANGER_POSITIONS:
-        o = keyhole_outline(x, y, HANGER_HEAD_D, HANGER_SLOT_W, HANGER_SLOT_LEN)
+        o = stadium_outline(x, y, HANGER_CAVITY_D, HANGER_SLOT_LEN)
         reach = float(np.hypot(o[:, 0], o[:, 1]).max()) if LAYOUT == "round" else float(np.abs(o).max())
         room = size / 2.0 - EDGE_MARGIN
         if reach > room:
@@ -736,7 +760,7 @@ def _main(t0, prog):
     holes = HANGER_POSITIONS if HANGERS else []
 
     prog.step("building the merged solid ...")
-    merged = build_shell(L, heights, scale, holes, HANGER_DEPTH)
+    merged = build_shell(L, heights, scale, holes, HANGER_DEPTH, HANGER_LIP)
     rep = check_mesh(*merged)
     log("[SMB87] merged solid : %d tris | watertight=%s | non-manifold edges=%d | volume %.1f cm3 | bbox %s .. %s" % (
         rep["tris"], rep["watertight"], rep["open_or_nonmanifold_edges"], rep["volume_mm3"] / 1000.0,
@@ -745,7 +769,7 @@ def _main(t0, prog):
     prog.step("building the colour parts ...")
     parts = []
     black_h = np.where(cls == CLASS_ID["black"], heights, BASE_THICKNESS)       # black part = back plate + black relief
-    V, F = build_shell(L, black_h, scale, holes, HANGER_DEPTH)
+    V, F = build_shell(L, black_h, scale, holes, HANGER_DEPTH, HANGER_LIP)
     parts.append(("black", V, F, PART_COLORS["black"]))
     present = set(int(c) for c in np.unique(cls))
     for n in PART_ORDER[1:]:
