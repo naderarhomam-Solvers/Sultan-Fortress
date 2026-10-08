@@ -1,0 +1,29 @@
+{
+  "business_name": "عيادة الأمل لطب الأسنان (Demo)",
+  "business_name_en": "Al-Amal Dental Clinic (Demo)",
+  "tone": "ودود ومهني ومختصر",
+  "languages": ["ar", "en"],
+  "timezone": "Africa/Tripoli",
+  "working_hours": "السبت–الخميس 9:00–21:00، الجمعة مغلق",
+  "address": "طرابلس — عنوان تجريبي",
+  "services": [
+    { "id": "checkup", "name": "كشف وفحص", "name_en": "Check-up", "duration_min": 30, "price": "60 د.ل" },
+    { "id": "cleaning", "name": "تنظيف أسنان", "name_en": "Teeth cleaning", "duration_min": 45, "price": "100 د.ل" },
+    { "id": "whitening", "name": "تبييض أسنان", "name_en": "Whitening", "duration_min": 60, "price": "350 د.ل" }
+  ],
+  "faq": [
+    { "q": "هل تقبلون التأمين؟", "a": "نتعامل مع بعض شركات التأمين، يرجى التواصل مع الاستقبال لتأكيد شركتكم." },
+    { "q": "هل الكشف مؤلم؟", "a": "الكشف بسيط وغير مؤلم عادةً، وسيشرح الطبيب كل خطوة قبل البدء." }
+  ],
+  "slots": {
+    "days_ahead": 7,
+    "start_hour": 9,
+    "end_hour": 17,
+    "step_min": 30,
+    "closed_weekdays": [5]
+  },
+  "handoff": {
+    "triggers": ["ألم شديد", "نزيف", "طوارئ", "حامل", "دواء", "شكوى", "مبلغ مسترد", "pain", "bleeding", "emergency", "pregnant", "complaint", "refund"],
+    "notify": "reception@example.com"
+  }
+}
