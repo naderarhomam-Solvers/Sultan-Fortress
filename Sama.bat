@@ -14,4 +14,5 @@ where ollama >nul 2>nul || (
   winget install -e --id Ollama.Ollama --accept-source-agreements --accept-package-agreements
 )
 ollama list 2>nul | findstr /i "qwen2.5" >nul || ollama pull qwen2.5:7b-instruct
+ollama list 2>nul | findstr /i "qwen2.5vl" >nul || ollama pull qwen2.5vl:7b
 python -m sama

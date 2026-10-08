@@ -109,3 +109,16 @@ def test_server_auth(env):
     assert json.loads(urllib.request.urlopen(r).read())["busy"] is False
     assert token in urllib.request.urlopen(base + "/").read().decode()
     srv.shutdown()
+
+
+def test_look_uses_vision(env):
+    cfg, mem, safety, _, d = env
+
+    class V(FakeLLM):
+        def vision(self, path, q):
+            return f"saw:{q}"
+
+    t = Tools(cfg, mem, d, V([]))
+    t.t_screenshot = lambda: "x.png"
+    assert t.call("look", {"question": "where is OK?"}) == "saw:where is OK?"
+    assert safety.classify("look", {}).level == SAFE

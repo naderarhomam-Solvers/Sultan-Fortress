@@ -17,7 +17,7 @@ def main():
     mem = Memory(d / "memory.db")
     safety = Safety(cfg, d / "audit.jsonl")
     llm = LLM(cfg)
-    agent = Agent(cfg, llm, Tools(cfg, mem, shots), safety, mem)
+    agent = Agent(cfg, llm, Tools(cfg, mem, shots, llm), safety, mem)
     server, _ = make_server(agent, safety, llm, cfg.port)
     url = f"http://127.0.0.1:{server.server_port}/"
     threading.Thread(target=server.serve_forever, daemon=True).start()

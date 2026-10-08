@@ -13,7 +13,7 @@ from pathlib import Path
 
 SAFE, CONFIRM, BLOCKED = "safe", "confirm", "blocked"
 
-READ_ONLY_TOOLS = {"list_dir", "read_file", "system_info", "screenshot", "recall"}
+READ_ONLY_TOOLS = {"list_dir", "read_file", "system_info", "screenshot", "look", "recall"}
 STATE_TOOLS = {"write_file", "open_app", "run_shell", "mouse_click", "type_text", "hotkey", "remember"}
 
 # Commands that must never run, however the model phrases them.

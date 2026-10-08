@@ -16,6 +16,7 @@ def data_dir() -> Path:
 class Config:
     ollama_url: str = "http://127.0.0.1:11434"
     model: str = "qwen2.5:7b-instruct"
+    vision_model: str = "qwen2.5vl:7b"  # ollama pull qwen2.5vl:7b
     max_steps: int = 15
     llm_timeout: int = 180
     approval_timeout: int = 120

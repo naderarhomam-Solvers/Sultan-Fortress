@@ -10,8 +10,8 @@ MAX_OUT = 4000
 
 
 class Tools:
-    def __init__(self, config, memory, shots_dir: Path):
-        self.cfg, self.mem, self.shots_dir = config, memory, shots_dir
+    def __init__(self, config, memory, shots_dir: Path, llm=None):
+        self.cfg, self.mem, self.shots_dir, self.llm = config, memory, shots_dir, llm
 
     def specs(self) -> str:
         return """\
@@ -21,6 +21,7 @@ write_file(path, content)           - create/overwrite a text file
 open_app(name)                      - open an app or file/URL (e.g. notepad, calc, https://...)
 run_shell(command)                  - run a PowerShell/cmd command, returns output
 screenshot()                        - save a screenshot, returns its path
+look(question)                      - take a screenshot and answer a question about what is on screen (use it to find where to click)
 mouse_click(x, y)                   - click at screen coordinates
 type_text(text)                     - type text into the focused window
 hotkey(keys)                        - press a combo, e.g. "ctrl+s"
@@ -90,6 +91,11 @@ remember(key, value) / recall(query) - long-term memory"""
         p = self.shots_dir / f"shot_{int(__import__('time').time())}.png"
         self._gui().screenshot(str(p))
         return str(p)
+
+    def t_look(self, question="Describe the screen and list clickable items with approximate x,y pixel coordinates."):
+        if not self.llm:
+            raise RuntimeError("vision model not configured")
+        return self.llm.vision(self.t_screenshot(), question)
 
     def t_mouse_click(self, x, y):
         self._gui().click(int(x), int(y))
