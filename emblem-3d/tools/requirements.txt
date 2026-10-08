@@ -1,0 +1,7 @@
+numpy
+scipy
+opencv-python-headless
+scikit-image
+shapely>=2.0.4
+mapbox-earcut
+trimesh[easy]

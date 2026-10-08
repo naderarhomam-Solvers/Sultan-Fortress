@@ -1,0 +1,6 @@
+faces_raw.pkl
+emblem_faces.npz
+sultan_emblem_layers.npz
+fields_S*.npz
+__pycache__/
+*.pyc
