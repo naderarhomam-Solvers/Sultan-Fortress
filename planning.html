@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منظومة تخطيط</title>
+<style>
+:root { --gold:#d4af37; --neon:#a020f0; --bg:#0b0b12; --card:#14141f; --line:#2a2a3d; --ok:#22c55e; --bad:#ef4444; --txt:#f2f2f7; --mut:#9a9ab0; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--txt); font-family:'Segoe UI',Tahoma,sans-serif; }
+header.top { padding:22px 16px; text-align:center; background:linear-gradient(135deg,#1b1030,#0b0b12 70%); border-bottom:2px solid var(--gold); }
+header.top h1 { margin:0; color:var(--gold); font-size:28px; letter-spacing:1px; }
+header.top p { margin:6px 0 0; color:var(--mut); font-size:13px; }
+nav { display:flex; gap:6px; padding:10px 12px; overflow-x:auto; background:#0f0f19; position:sticky; top:0; z-index:5; border-bottom:1px solid var(--line); }
+nav button { flex:0 0 auto; background:transparent; color:var(--txt); border:1px solid var(--line); padding:9px 16px; border-radius:8px; cursor:pointer; font-size:14px; }
+nav button.on { background:var(--neon); border-color:var(--neon); box-shadow:0 0 12px rgba(160,32,240,.5); }
+main { max-width:1100px; margin:0 auto; padding:16px; }
+section.tab { display:none; } section.tab.on { display:block; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+.card h2 { margin:0 0 12px; font-size:17px; color:var(--gold); }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+label { display:block; font-size:12px; color:var(--mut); margin-bottom:4px; }
+input, select, textarea { width:100%; background:#08080f; border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:9px 11px; font-size:14px; font-family:inherit; }
+input:focus, select:focus, textarea:focus { outline:none; border-color:var(--neon); }
+button.btn { background:var(--neon); color:#fff; border:none; padding:9px 18px; border-radius:8px; cursor:pointer; font-weight:bold; font-size:14px; }
+button.btn.alt { background:transparent; border:1px solid var(--gold); color:var(--gold); }
+button.btn.del { background:transparent; border:1px solid var(--bad); color:var(--bad); padding:5px 10px; font-size:12px; }
+.row { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+.row > * { flex:1 1 150px; } .row > .btn { flex:0 0 auto; }
+.scroll { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th, td { border:1px solid var(--line); padding:7px 9px; text-align:center; }
+th { background:#1d1d2e; color:var(--gold); white-space:nowrap; }
+td.name { text-align:right; white-space:nowrap; }
+td input { padding:5px 7px; min-width:70px; }
+.right { background:rgba(34,197,94,.18); } .wrong { background:rgba(239,68,68,.15); }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:14px; }
+.stat { background:#0b0b14; border:1px solid var(--line); border-radius:10px; padding:12px; text-align:center; }
+.stat b { display:block; font-size:24px; color:var(--gold); } .stat span { font-size:12px; color:var(--mut); }
+.bar { height:10px; background:#1d1d2e; border-radius:5px; overflow:hidden; min-width:80px; }
+.bar i { display:block; height:100%; background:linear-gradient(90deg,var(--neon),var(--gold)); }
+.hint { color:var(--mut); font-size:12px; margin:6px 0 0; }
+.empty { text-align:center; color:var(--mut); padding:20px; }
+
+/* ورقة التقرير */
+#paper { background:#fff; color:#111; border-radius:6px; padding:28px; }
+#paper .ph { text-align:center; border-bottom:3px double #333; padding-bottom:12px; margin-bottom:14px; }
+#paper .ph h1 { margin:4px 0; font-size:26px; } #paper .ph h3 { margin:2px 0; font-weight:normal; color:#444; }
+#paper .meta { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; font-size:14px; margin-bottom:12px; }
+#paper table th { background:#eee; color:#111; border-color:#888; } #paper td, #paper th { border-color:#888; color:#111; }
+#paper .stat { background:#f7f7f7; border-color:#ccc; } #paper .stat b { color:#111; } #paper .stat span { color:#555; }
+#paper .bar { background:#ddd; } #paper .bar i { background:#333; }
+#paper .right { background:#dcfce7; } #paper .wrong { background:#fee2e2; }
+#paper h4 { margin:16px 0 6px; font-size:15px; border-right:4px solid #333; padding-right:8px; }
+#paper .sign { display:flex; justify-content:space-around; margin-top:40px; text-align:center; font-size:14px; }
+#paper .sign div { min-width:180px; border-top:1px solid #333; padding-top:6px; }
+
+@media print {
+  @page { size:A4; margin:12mm; }
+  body { background:#fff; }
+  header.top, nav, .tab:not(#t-report), .noprint { display:none !important; }
+  main { padding:0; max-width:none; }
+  #t-report { display:block !important; }
+  #paper { padding:0; }
+  tr { page-break-inside:avoid; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>منظومة تخطيط</h1>
+  <p>إدارة الطلبة والمجموعات · الامتحان الأسبوعي · النتائج والتقارير</p>
+</header>
+
+<nav id="nav">
+  <button data-t="settings" class="on">⚙️ الإعدادات</button>
+  <button data-t="students">👥 الطلبة</button>
+  <button data-t="exam">📝 الامتحان</button>
+  <button data-t="results">✅ النتائج</button>
+  <button data-t="report">📄 التقرير والطباعة</button>
+</nav>
+
+<main>
+<!-- الإعدادات -->
+<section class="tab on" id="t-settings">
+  <div class="card">
+    <h2>عنوان الورقة وبياناتها</h2>
+    <div class="grid">
+      <div><label>عنوان الورقة</label><input id="s-title" placeholder="اكتب العنوان الذي تريده"></div>
+      <div><label>الجهة / المؤسسة</label><input id="s-org"></div>
+      <div><label>الأسبوع</label><input id="s-week" placeholder="مثال: الأسبوع الثالث"></div>
+      <div><label>التاريخ</label><input id="s-date" type="date"></div>
+      <div><label>المشرف المختار</label><select id="s-sup"></select></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>المشرفون</h2>
+    <div class="row"><div><label>اسم مشرف جديد</label><input id="sup-name"></div><button class="btn" id="sup-add">إضافة</button></div>
+    <div id="sup-list" class="hint"></div>
+  </div>
+  <div class="card">
+    <h2>المجموعات</h2>
+    <div class="row"><div><label>اسم مجموعة جديدة</label><input id="grp-name"></div><button class="btn" id="grp-add">إضافة</button></div>
+    <div id="grp-list" class="hint"></div>
+  </div>
+  <div class="card">
+    <h2>حفظ ونقل البيانات</h2>
+    <div class="row">
+      <button class="btn alt" id="exp">⬇️ تصدير نسخة احتياطية</button>
+      <button class="btn alt" id="imp-btn">⬆️ استيراد نسخة</button>
+      <button class="btn del" id="reset">مسح كل البيانات</button>
+    </div>
+    <input type="file" id="imp" accept="application/json" style="display:none">
+    <p class="hint">البيانات تُحفظ تلقائياً في هذا المتصفح. صدّر نسخة احتياطية بين فترة وأخرى.</p>
+  </div>
+</section>
+
+<!-- الطلبة -->
+<section class="tab" id="t-students">
+  <div class="card">
+    <h2>إضافة طالب</h2>
+    <div class="row">
+      <div><label>الاسم الكامل</label><input id="st-name"></div>
+      <div><label>القاطع</label><select id="st-sector"><option>القاطع الأول</option><option>القاطع الثاني</option></select></div>
+      <div><label>المجموعة</label><select id="st-group"></select></div>
+      <div><label>النقلية</label><input id="st-trans" placeholder="اختياري"></div>
+      <button class="btn" id="st-add">إضافة</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>إضافة جماعية <span class="hint">(اسم في كل سطر — يُضاف للقاطع والمجموعة المختارين أعلاه)</span></h2>
+    <textarea id="st-bulk" rows="5" placeholder="الصق الأسماء هنا، اسم في كل سطر"></textarea>
+    <div style="margin-top:8px"><button class="btn alt" id="st-bulk-add">إضافة الأسماء</button></div>
+  </div>
+  <div class="card">
+    <h2>قائمة الطلبة (<span id="st-count">0</span>)</h2>
+    <div class="scroll" id="st-table"></div>
+  </div>
+</section>
+
+<!-- الامتحان -->
+<section class="tab" id="t-exam">
+  <div class="card">
+    <h2>إضافة سؤال</h2>
+    <div class="row">
+      <div style="flex:3 1 260px"><label>نص السؤال</label><input id="q-text"></div>
+      <div><label>الإجابة الصحيحة</label><input id="q-ans"></div>
+      <div style="flex:0 1 90px"><label>الدرجة</label><input id="q-marks" type="number" min="0" step="0.5" value="1"></div>
+      <button class="btn" id="q-add">إضافة</button>
+    </div>
+    <p class="hint">المقارنة تتجاهل المسافات الزائدة وحالة الأحرف، ولا تتجاهل اختلاف الحروف العربية (أ/ا، ة/ه) — اكتب مفتاح الإجابة كما يُكتب في الورقة.</p>
+  </div>
+  <div class="card">
+    <h2>أسئلة الامتحان (<span id="q-count">0</span>) · المجموع: <span id="q-total">0</span></h2>
+    <div class="scroll" id="q-table"></div>
+  </div>
+</section>
+
+<!-- النتائج -->
+<section class="tab" id="t-results">
+  <div class="card">
+    <h2>إدخال إجابات الطلبة</h2>
+    <p class="hint">اكتب إجابة كل طالب في خانته؛ تتلوّن الصحيحة بالأخضر والخاطئة بالأحمر، وتُحسب الدرجة تلقائياً. الخانة الفارغة تُعدّ لم تُجب.</p>
+    <div class="scroll" id="r-table"></div>
+  </div>
+</section>
+
+<!-- التقرير -->
+<section class="tab" id="t-report">
+  <div class="card noprint">
+    <div class="row">
+      <div><label>عرض حسب القاطع</label><select id="f-sector"><option value="">الكل</option><option>القاطع الأول</option><option>القاطع الثاني</option></select></div>
+      <div><label>عرض حسب المجموعة</label><select id="f-group"></select></div>
+      <div style="flex:0 1 110px"><label>درجة النجاح %</label><input id="f-pass" type="number" value="50" min="0" max="100"></div>
+      <button class="btn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+    </div>
+  </div>
+  <div id="paper"></div>
+</section>
+</main>
+
+<script>
+const KEY = 'takhtit-v1';
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const blank = () => ({ title:'', org:'', week:'', date:'', supervisor:'', supervisors:[], groups:[], students:[], questions:[], answers:{} });
+let S = blank();
+try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(blank(), JSON.parse(raw)); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+/* ---------- تبويبات ---------- */
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('on', s.id === 't-' + b.dataset.t));
+  render();
+});
+
+/* ---------- الحسابات ---------- */
+const totalMarks = () => S.questions.reduce((a, q) => a + (+q.marks || 0), 0);
+function isRight(sid, q) {
+  const a = (S.answers[sid] || {})[q.id];
+  return a != null && norm(a) !== '' && norm(a) === norm(q.answer);
+}
+const scoreOf = sid => S.questions.reduce((a, q) => a + (isRight(sid, q) ? (+q.marks || 0) : 0), 0);
+const fmt = n => Number.isInteger(n) ? n : n.toFixed(1);
+
+/* ---------- الإعدادات ---------- */
+['title','org','week','date'].forEach(k => $('s-' + k).oninput = e => { S[k] = e.target.value; save(); });
+$('s-sup').onchange = e => { S.supervisor = e.target.value; save(); };
+$('sup-add').onclick = () => { const v = $('sup-name').value.trim(); if (!v) return; if (!S.supervisors.includes(v)) S.supervisors.push(v); if (!S.supervisor) S.supervisor = v; $('sup-name').value = ''; save(); render(); };
+$('grp-add').onclick = () => { const v = $('grp-name').value.trim(); if (!v) return; if (!S.groups.includes(v)) S.groups.push(v); $('grp-name').value = ''; save(); render(); };
+function chips(arr, kind) {
+  return arr.length ? arr.map((v, i) => `<span style="display:inline-block;margin:3px;padding:4px 10px;border:1px solid var(--line);border-radius:14px">${esc(v)} <a href="#" data-k="${kind}" data-i="${i}" style="color:var(--bad);text-decoration:none">✕</a></span>`).join('') : 'لا يوجد بعد.';
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[data-k]'); if (!a) return; e.preventDefault();
+  const i = +a.dataset.i;
+  if (a.dataset.k === 'sup') { const v = S.supervisors[i]; S.supervisors.splice(i, 1); if (S.supervisor === v) S.supervisor = S.supervisors[0] || ''; }
+  else { const v = S.groups[i]; S.groups.splice(i, 1); S.students.forEach(s => { if (s.group === v) s.group = ''; }); }
+  save(); render();
+});
+$('exp').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type:'application/json' }));
+  a.download = 'takhtit-backup.json'; a.click();
+};
+$('imp-btn').onclick = () => $('imp').click();
+$('imp').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { try { S = Object.assign(blank(), JSON.parse(r.result)); save(); render(); alert('تم الاستيراد'); } catch (x) { alert('الملف غير صالح'); } };
+  r.readAsText(f);
+};
+$('reset').onclick = () => { if (confirm('سيتم مسح كل البيانات نهائياً. متأكد؟')) { S = blank(); save(); render(); } };
+
+/* ---------- الطلبة ---------- */
+function addStudent(name) {
+  name = name.trim().replace(/\s+/g, ' '); if (!name) return false;
+  if (S.students.some(s => norm(s.name) === norm(name) && s.sector === $('st-sector').value)) return false;
+  S.students.push({ id:uid(), name, sector:$('st-sector').value, group:$('st-group').value, trans:$('st-trans').value.trim() });
+  return true;
+}
+$('st-add').onclick = () => { if (addStudent($('st-name').value)) { $('st-name').value = ''; save(); render(); } else alert('الاسم فارغ أو مكرر في نفس القاطع'); };
+$('st-bulk-add').onclick = () => {
+  const names = $('st-bulk').value.split('\n'); let n = 0, d = 0;
+  names.forEach(x => { if (x.trim()) addStudent(x) ? n++ : d++; });
+  $('st-bulk').value = ''; save(); render(); alert(`أُضيف ${n} اسم` + (d ? ` · تُجوهل ${d} مكرر` : ''));
+};
+function renderStudents() {
+  $('st-count').textContent = S.students.length;
+  const gopts = g => ['<option value="">— بدون —</option>'].concat(S.groups.map(x => `<option ${x === g ? 'selected' : ''}>${esc(x)}</option>`)).join('');
+  $('st-table').innerHTML = S.students.length ? `<table><tr><th>#</th><th>الاسم</th><th>القاطع</th><th>المجموعة</th><th>النقلية</th><th></th></tr>` +
+    S.students.map((s, i) => `<tr><td>${i + 1}</td>
+      <td><input data-f="name" data-id="${s.id}" value="${esc(s.name)}"></td>
+      <td><select data-f="sector" data-id="${s.id}"><option ${s.sector === 'القاطع الأول' ? 'selected' : ''}>القاطع الأول</option><option ${s.sector === 'القاطع الثاني' ? 'selected' : ''}>القاطع الثاني</option></select></td>
+      <td><select data-f="group" data-id="${s.id}">${gopts(s.group)}</select></td>
+      <td><input data-f="trans" data-id="${s.id}" value="${esc(s.trans)}"></td>
+      <td><button class="btn del" data-del="${s.id}">حذف</button></td></tr>`).join('') + '</table>'
+    : '<div class="empty">لم تُضف أسماء بعد.</div>';
+}
+$('st-table').addEventListener('change', e => {
+  const t = e.target; if (!t.dataset.f) return;
+  const s = S.students.find(x => x.id === t.dataset.id); if (s) { s[t.dataset.f] = t.value.trim(); save(); }
+});
+$('st-table').addEventListener('click', e => {
+  const id = e.target.dataset.del; if (!id) return;
+  if (confirm('حذف هذا الطالب ونتائجه؟')) { S.students = S.students.filter(s => s.id !== id); delete S.answers[id]; save(); render(); }
+});
+
+/* ---------- الأسئلة ---------- */
+$('q-add').onclick = () => {
+  const text = $('q-text').value.trim(), answer = $('q-ans').value.trim();
+  if (!text || !answer) return alert('اكتب السؤال وإجابته الصحيحة');
+  S.questions.push({ id:uid(), text, answer, marks:+$('q-marks').value || 0 });
+  $('q-text').value = ''; $('q-ans').value = ''; save(); render();
+};
+function renderExam() {
+  $('q-count').textContent = S.questions.length; $('q-total').textContent = fmt(totalMarks());
+  $('q-table').innerHTML = S.questions.length ? `<table><tr><th>#</th><th>السؤال</th><th>الإجابة الصحيحة</th><th>الدرجة</th><th></th></tr>` +
+    S.questions.map((q, i) => `<tr><td>${i + 1}</td>
+      <td><input data-q="text" data-id="${q.id}" value="${esc(q.text)}"></td>
+      <td><input data-q="answer" data-id="${q.id}" value="${esc(q.answer)}"></td>
+      <td><input data-q="marks" type="number" step="0.5" data-id="${q.id}" value="${q.marks}"></td>
+      <td><button class="btn del" data-qdel="${q.id}">حذف</button></td></tr>`).join('') + '</table>'
+    : '<div class="empty">لا توجد أسئلة بعد.</div>';
+}
+$('q-table').addEventListener('change', e => {
+  const t = e.target; if (!t.dataset.q) return;
+  const q = S.questions.find(x => x.id === t.dataset.id); if (!q) return;
+  q[t.dataset.q] = t.dataset.q === 'marks' ? (+t.value || 0) : t.value.trim(); save(); render();
+});
+$('q-table').addEventListener('click', e => {
+  const id = e.target.dataset.qdel; if (!id) return;
+  if (confirm('حذف السؤال؟')) { S.questions = S.questions.filter(q => q.id !== id); save(); render(); }
+});
+
+/* ---------- النتائج ---------- */
+function renderResults() {
+  if (!S.students.length || !S.questions.length) { $('r-table').innerHTML = '<div class="empty">أضف الطلبة والأسئلة أولاً.</div>'; return; }
+  $('r-table').innerHTML = `<table><tr><th>الطالب</th>${S.questions.map((q, i) => `<th title="${esc(q.text)}">س${i + 1}</th>`).join('')}<th>الدرجة</th></tr>` +
+    S.students.map(s => `<tr><td class="name">${esc(s.name)}</td>` +
+      S.questions.map(q => {
+        const v = (S.answers[s.id] || {})[q.id] ?? '';
+        const cls = norm(v) === '' ? '' : (isRight(s.id, q) ? 'right' : 'wrong');
+        return `<td class="${cls}"><input data-s="${s.id}" data-q="${q.id}" value="${esc(v)}"></td>`;
+      }).join('') + `<td id="sc-${s.id}"><b>${fmt(scoreOf(s.id))}</b> / ${fmt(totalMarks())}</td></tr>`).join('') + '</table>';
+}
+$('r-table').addEventListener('change', e => {
+  const t = e.target; if (!t.dataset.s) return;
+  (S.answers[t.dataset.s] = S.answers[t.dataset.s] || {})[t.dataset.q] = t.value.trim();
+  save(); renderResults();
+});
+
+/* ---------- التقرير ---------- */
+['f-sector', 'f-group', 'f-pass'].forEach(id => $(id).onchange = renderReport);
+function renderReport() {
+  const fs = $('f-sector').value, fg = $('f-group').value, pass = +$('f-pass').value || 0, total = totalMarks();
+  let list = S.students.filter(s => (!fs || s.sector === fs) && (!fg || s.group === fg))
+    .map(s => ({ ...s, score: scoreOf(s.id), pct: total ? scoreOf(s.id) / total * 100 : 0 }))
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'ar'));
+  let rank = 0, prev = null, shown = 0;
+  list.forEach((s, i) => { shown = i + 1; if (s.score !== prev) { rank = shown; prev = s.score; } s.rank = rank; });
+  const n = list.length, avg = n ? list.reduce((a, s) => a + s.score, 0) / n : 0;
+  const passed = list.filter(s => s.pct >= pass).length;
+  const dateTxt = S.date ? new Date(S.date + 'T00:00:00').toLocaleDateString('ar-LY') : '';
+  const qStats = S.questions.map((q, i) => {
+    const r = list.filter(s => isRight(s.id, q)).length;
+    return `<tr><td>${i + 1}</td><td style="text-align:right">${esc(q.text)}</td><td>${esc(q.answer)}</td><td>${r} / ${n}</td><td><div class="bar"><i style="width:${n ? r / n * 100 : 0}%"></i></div></td></tr>`;
+  }).join('');
+  $('paper').innerHTML = `
+    <div class="ph"><h3>${esc(S.org)}</h3><h1>${esc(S.title) || 'عنوان الورقة'}</h1><h3>${esc(S.week)} ${dateTxt ? '· ' + dateTxt : ''}</h3></div>
+    <div class="meta"><span>المشرف: <b>${esc(S.supervisor) || '—'}</b></span><span>القاطع: <b>${esc(fs) || 'الكل'}</b></span><span>المجموعة: <b>${esc(fg) || 'الكل'}</b></span></div>
+    <div class="stats">
+      <div class="stat"><b>${n}</b><span>عدد الطلبة</span></div>
+      <div class="stat"><b>${fmt(+avg.toFixed(2))}</b><span>المتوسط من ${fmt(total)}</span></div>
+      <div class="stat"><b>${n ? fmt(list[0].score) : 0}</b><span>أعلى درجة</span></div>
+      <div class="stat"><b>${n ? fmt(list[n - 1].score) : 0}</b><span>أدنى درجة</span></div>
+      <div class="stat"><b>${n ? Math.round(passed / n * 100) : 0}%</b><span>نسبة النجاح (${passed})</span></div>
+    </div>
+    <h4>كشف الدرجات</h4>
+    ${n ? `<table><tr><th>الترتيب</th><th>الاسم</th><th>القاطع</th><th>المجموعة</th><th>النقلية</th><th>الدرجة</th><th>%</th><th>النتيجة</th></tr>` +
+      list.map(s => `<tr><td>${s.rank}</td><td style="text-align:right">${esc(s.name)}</td><td>${esc(s.sector)}</td><td>${esc(s.group)}</td><td>${esc(s.trans)}</td><td>${fmt(s.score)} / ${fmt(total)}</td><td>${s.pct.toFixed(1)}</td><td>${s.pct >= pass ? 'ناجح' : 'راسب'}</td></tr>`).join('') + '</table>' : '<div class="empty">لا توجد بيانات.</div>'}
+    ${S.questions.length ? `<h4>تحليل الأسئلة</h4><table><tr><th>#</th><th>السؤال</th><th>الإجابة الصحيحة</th><th>أجابوا صح</th><th>النسبة</th></tr>${qStats}</table>` : ''}
+    <div class="sign"><div>المشرف: ${esc(S.supervisor)}</div><div>المدير</div></div>`;
+}
+
+/* ---------- الرسم العام ---------- */
+function fillSelects() {
+  $('s-title').value = S.title; $('s-org').value = S.org; $('s-week').value = S.week; $('s-date').value = S.date;
+  $('s-sup').innerHTML = S.supervisors.length ? S.supervisors.map(v => `<option ${v === S.supervisor ? 'selected' : ''}>${esc(v)}</option>`).join('') : '<option value="">— أضف مشرفاً —</option>';
+  $('sup-list').innerHTML = chips(S.supervisors, 'sup'); $('grp-list').innerHTML = chips(S.groups, 'grp');
+  const opts = '<option value="">— بدون —</option>' + S.groups.map(g => `<option>${esc(g)}</option>`).join('');
+  const cur = $('st-group').value; $('st-group').innerHTML = opts; $('st-group').value = cur;
+  const fcur = $('f-group').value; $('f-group').innerHTML = '<option value="">الكل</option>' + S.groups.map(g => `<option>${esc(g)}</option>`).join(''); $('f-group').value = fcur;
+}
+function render() {
+  const active = document.querySelector('section.tab.on').id;
+  if (active === 't-settings') fillSelects();
+  else { fillSelects(); }
+  if (active === 't-students') renderStudents();
+  if (active === 't-exam') renderExam();
+  if (active === 't-results') renderResults();
+  if (active === 't-report') renderReport();
+}
+render();
+</script>
+</body>
+</html>
