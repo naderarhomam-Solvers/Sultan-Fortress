@@ -9,6 +9,8 @@
 
 ![الأصل مقابل المجسّم](preview/original_vs_full.jpg)
 
+صور معاينة للمجسّم (تصيير): [النسر](preview/full_02_closeup_eagle.jpg) · [الجناح الباهت](preview/full_03_closeup_ghost_wing.jpg) · [87 الكبير](preview/full_04_closeup_big_87.jpg) · [رأس الثعبان](preview/full_05_closeup_snake_head.jpg) · [الخنجر الباهت](preview/full_06_closeup_ghost_sword.jpg) · [اتساعها في السرير وفتحتا التعليق](preview/bed_fit_and_hangers.png)
+
 ## الملف الذي تضعه في Blender
 
 `blender/build_sultan_plaque.py` — ويجب أن يبقى بجانبه الملفان `sultan_full_layers.npz` و`sultan_emblem_layers.npz`.
