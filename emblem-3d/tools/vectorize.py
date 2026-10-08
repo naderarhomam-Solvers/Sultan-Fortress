@@ -223,6 +223,36 @@ def merge_slivers(faces, cls, thick_min=0.07, area_min=0.004, max_pass=40, verbo
     return faces, np.array(cls, np.int32)
 
 
+def absorb_ring_bumps(faces, cls, max_area=0.15, verbose=True):
+    """tiny black faces that merely touch a big black ring face (ring-edge bumps of 0.03-0.1 mm2, not part of any glyph)
+    are absorbed into the ring so that the ring edge stays clean"""
+    faces = list(faces)
+    cls = list(cls)
+    area = np.array([f.area for f in faces])
+    rings = [i for i in range(len(faces)) if cls[i] == BLACK and area[i] > 1000.0]
+    small = [i for i in range(len(faces)) if cls[i] == BLACK and area[i] < max_area]
+    drop, n = set(), 0
+    for i in small:
+        best, bl = None, 0.0
+        for j in rings:
+            if faces[j].distance(faces[i]) > 1e-9:
+                continue
+            L = faces[i].boundary.intersection(faces[j].boundary).length
+            if L > bl:
+                best, bl = j, L
+        if best is None or bl < 1e-6:
+            continue
+        u = shapely.union_all([faces[best], faces[i]])
+        if u.geom_type == 'Polygon':
+            faces[best] = u
+            drop.add(i)
+            n += 1
+    if verbose:
+        print('absorbed %d ring-edge bumps' % n, flush=True)
+    keep = [k for k in range(len(faces)) if k not in drop]
+    return [faces[k] for k in keep], np.array([cls[k] for k in keep], np.int32)
+
+
 if __name__ == '__main__':
     layout = sys.argv[1] if len(sys.argv) > 1 else 'round'
     out = sys.argv[2] if len(sys.argv) > 2 else 'faces_raw.pkl'
@@ -232,6 +262,7 @@ if __name__ == '__main__':
     faces = faces[keep]
     cls = cls[keep]
     faces, cls = merge_slivers(faces, cls)
+    faces, cls = absorb_ring_bumps(faces, cls)
     faces = np.array(faces, dtype=object)
     area = shapely.area(faces)
     per = shapely.length(faces)

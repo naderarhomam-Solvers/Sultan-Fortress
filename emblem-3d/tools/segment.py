@@ -8,10 +8,10 @@ PARAMS = dict(
     tau_d=0.50,        # absolute darkness (lum < ~59) is ink, even next to brown ...
     chroma_max=32.0,   # ... but only if its colour is not brown (R-B below this)   [used inside the snake/sword ROI only]
     tau_k=0.50,        # black threshold on the sharpened black fraction
-    tau_n=0.50,        # dark-brown threshold (snake outline / scales / sword)
+    tau_n=0.85,        # dark-brown threshold: only the dark-brown core is 'brown' (0.85 makes the snake/sword dark share equal to the picture's: 39.4% vs 39.6%)
     tan_t=0.30,        # silhouette threshold on the blurred brown fraction  (snake / sword body)
     tau_t=0.50,        # black text in the green band
-    min_area_px2=0.459,  # drop islands / pinholes smaller than this many ORIGINAL-picture pixels^2 (= 0.05 mm2 on the round plaque)
+    min_area_px2=0.918,  # drop islands / pinholes smaller than this many ORIGINAL-picture pixels^2 (= 0.10 mm2 on the round plaque)
     brown_roi_pad=6.0,  # px (original) dilation of the snake+sword component
     hole_lum_max=160.0,  # enclosed gaps of the tan silhouette are filled only if the picture is darker than this (cream = 178)
 )
