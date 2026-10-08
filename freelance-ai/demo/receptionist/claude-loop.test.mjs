@@ -38,3 +38,10 @@ test("API error surfaces; runaway tool loop ends with handoff message", async ()
   const out = await chat([{ role: "user", content: "x" }]);
   assert.match(out.reply, /موظف/);
 });
+
+test("upstream calls carry a timeout signal", async () => {
+  let init;
+  globalThis.fetch = async (_u, i) => { init = i; return new Response(JSON.stringify({ stop_reason: "end_turn", content: [{ type: "text", text: "ok" }] }), { status: 200 }); };
+  await chat([{ role: "user", content: "x" }]);
+  assert.ok(init.signal instanceof AbortSignal);
+});

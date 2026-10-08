@@ -17,12 +17,14 @@ const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 const KEY = process.env.ANTHROPIC_API_KEY;
 export const MODE = KEY ? "claude" : "mock";
 const MAX_TURNS = 6;
+const FALLBACK_REPLY = "عذرًا، حدث خطأ مؤقت. سيتواصل معك أحد موظفينا قريبًا. / Sorry, a temporary error occurred; our staff will contact you.";
 
 async function callClaude(messages) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({ model: MODEL, max_tokens: 800, system: systemPrompt(config), tools: toolDefs, messages }),
+    signal: AbortSignal.timeout(Number(process.env.API_TIMEOUT_MS) || 25_000), // a hung upstream must not hang the customer
   });
   if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${await res.text()}`);
   return res.json();
@@ -102,7 +104,13 @@ export const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/chat") {
       if (!limiter(clientIp(req))) return json(res, 429, { error: "too many requests" });
       const { messages } = JSON.parse(await readBody(req, 50_000));
-      return json(res, 200, await chat(sanitizeHistory(messages), { channel: "web", sender: clientIp(req) }));
+      const history = sanitizeHistory(messages); // 400 on bad input, before any upstream call
+      try {
+        return json(res, 200, await chat(history, { channel: "web", sender: clientIp(req) }));
+      } catch (e) { // upstream failure/timeout: degrade to a safe human-handoff message instead of a 500
+        console.error("chat failed:", e.message);
+        return json(res, 200, { reply: FALLBACK_REPLY, trace: [], degraded: true });
+      }
     }
     if (req.method === "GET" && url.pathname === "/api/state") return json(res, 200, { mode: MODE });
     if (req.method === "GET" && url.pathname === "/api/admin/state") {
