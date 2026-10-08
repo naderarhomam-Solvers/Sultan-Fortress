@@ -1,0 +1,4 @@
+# Core has no third-party deps. Optional extras:
+pywebview>=5   # native window
+pyautogui>=0.9 # mouse/keyboard/screenshot
+psutil>=5      # system info
