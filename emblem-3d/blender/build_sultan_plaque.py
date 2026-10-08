@@ -2,18 +2,23 @@
 """
 SMB-87  |  اللواء 87 مهام خاصة  |  3D-printable wall plaque generator for Blender
 ==========================================================================================
-Builds a watertight, print-ready relief plaque (diameter 238 mm by default -> fits the 250 x 250 mm bed of the
-Anycubic Kobra 3) from the vectorised emblem layers stored in  sultan_emblem_layers.npz  (same folder).
+Builds a watertight, print-ready relief plaque that fits the 250 x 250 mm bed of the Anycubic Kobra 3 from the
+vectorised picture layers stored next to this script.  Two layouts (setting LAYOUT):
+    "full"  the WHOLE picture on a 240 mm rounded-square plaque: the round patch + the faded background art
+            (big wings, big 87, ghost sword/snake, ghost lettering, optionally the TikTok mark)   sultan_full_layers.npz
+    "round" the round patch only, as a 238 mm disc (the emblem is larger, details are easier to print)  sultan_emblem_layers.npz
 
 HOW TO USE (tested on Blender 5.0.1; uses only standard bpy / mathutils / numpy API)
-  1. Keep this file and  sultan_emblem_layers.npz  in the same folder.
-  2. Blender > Scripting workspace > Open  build_sultan_plaque.py  > press "Run Script" (Alt+P).
+  1. Keep this file and both  .npz  data files in the same folder.
+  2. Blender > Scripting workspace > Text > Open  build_sultan_plaque.py  (do NOT copy-paste it into a new text block:
+     the data files are looked up next to the opened file) > press "Run Script" (Alt+P).  Takes about 10-20 s; the
+     window may stay still meanwhile (progress is shown in the status bar).
      (Or headless:  blender -b -P build_sultan_plaque.py )
   3. The result is built in the scene (coloured parts + merged solid) and exported to  <folder>/SMB87_output/ :
-        SMB87_plaque_merged.stl      one solid, for single-colour printing
-        SMB87_plaque_parts.3mf       one object, 6 colour parts (black/red/green/cream/tan/brown) for multi-colour
-        parts/SMB87_<colour>.stl     the same 6 parts as separate STL files
-  Change the settings in the block below (diameter, relief heights, hangers ...) and run again.
+        SMB87_<layout>_<size>mm_merged.stl   one solid, for single-colour printing
+        SMB87_<layout>_<size>mm_parts.3mf    one object, one part per colour, for multi-colour printing
+        parts_<layout>/SMB87_<colour>.stl    the same parts as separate STL files
+  Change the settings in the block below (layout, size, relief heights, hangers, watermark ...) and run again.
 
 The geometry core only needs numpy, so it also runs outside Blender (python build_sultan_plaque.py).
 Units: 1 Blender unit = 1 mm.   Print orientation: back side on the bed, front (relief) up - no supports needed.
@@ -27,10 +32,12 @@ import numpy as np
 # =============================================================================================================
 #  SETTINGS  (edit here)
 # =============================================================================================================
-DATA_FILE = "sultan_emblem_layers.npz"     # vectorised emblem (looked up next to this script / the .blend file)
+LAYOUT = "full"                            # "full" = whole picture on a square plaque, "round" = the round patch only
+DATA_FILES = {"full": "sultan_full_layers.npz", "round": "sultan_emblem_layers.npz"}   # looked up next to this script
 OUTPUT_DIR = None                          # None -> <data folder>/SMB87_output
 
-PLAQUE_DIAMETER = 238.0                    # mm, outer diameter of the black rim.  Kobra 3 bed = 250 x 250
+PLAQUE_SIZE = {"full": 240.0, "round": 238.0}   # mm: side of the rounded square ("full") / diameter of the disc ("round")
+INCLUDE_WATERMARK = False                  # "full" layout only: also print the TikTok logo + handle (@bifaalmnfe720)
 BED_XY = (250.0, 250.0)                    # printer bed, only used for the fit check
 BED_SAFE_MARGIN = 3.0                      # mm kept free on every side (skirt / brim)
 
@@ -42,6 +49,10 @@ RELIEF = {                                 # mm above the back plate, multiples 
     "brown": 0.8,                          #   snake scales + outline, sword shading
     "red":   0.8,                          #   the two thin red rings
     "black": 1.2,                          #   rims, eagle line-work, all lettering, "87"
+    "plate": 0.4,                          #   "full" layout: the dark plate around the patch
+    "ghost": 0.8,                          #   "full" layout: faded wings / big 87 / ghost lettering (0.4 above the plate)
+    "copper": 0.8,                         #   "full" layout: faded sword + snake tail + snake head
+    "mark": 0.8,                           #   "full" layout: TikTok mark (only if INCLUDE_WATERMARK)
 }
 
 HANGERS = True                             # two keyhole pockets on the back for wall mounting (screw head <= 8.5 mm)
@@ -51,6 +62,7 @@ HANGER_SLOT_W = 4.6                        # mm, slot for the screw shank
 HANGER_SLOT_LEN = 9.5                      # mm, slide distance
 HANGER_DEPTH = 2.4                         # mm, pocket depth from the back (must stay below BASE_THICKNESS - 0.8)
 
+VERIFY_EXPORTS = True                      # re-read the written STL, merge vertices like a slicer does, re-check watertightness
 EXPORT_MERGED_STL = True
 EXPORT_PARTS = True                        # 3MF (one object, six parts) + six STL files
 BUILD_IN_BLENDER = True                    # create objects / materials / camera / light in the open scene
@@ -60,8 +72,10 @@ HIDE_MERGED_IN_VIEWPORT = True             # show the colour parts, keep the mer
 PART_COLORS = {
     "black": (14, 14, 14), "red": (125, 25, 8), "green": (89, 113, 14),
     "cream": (208, 196, 129), "tan": (168, 138, 92), "brown": (110, 62, 36),
+    "plate": (24, 38, 26), "ghost": (84, 96, 64), "copper": (170, 106, 78), "mark": (245, 245, 245),
 }
-CLASS_NAME = {1: "black", 2: "red", 3: "green", 4: "cream", 5: "tan", 6: "brown"}
+CLASS_NAME = {1: "black", 2: "red", 3: "green", 4: "cream", 5: "tan", 6: "brown",
+              7: "plate", 8: "ghost", 9: "copper", 10: "mark"}
 CLASS_ID = {v: k for k, v in CLASS_NAME.items()}
 
 try:                                       # Blender is optional: the geometry core is pure numpy
@@ -76,29 +90,67 @@ except Exception:                          # pragma: no cover
 # =============================================================================================================
 #  helpers: data, topology
 # =============================================================================================================
-def script_dir():
+def log(*args):
+    """print that can never crash on a console that cannot show Arabic / non-ASCII paths, and flushes at once"""
+    s = " ".join(str(a) for a in args)
     try:
-        return os.path.dirname(os.path.abspath(__file__))
+        print(s)
+    except UnicodeEncodeError:
+        print(s.encode("ascii", "replace").decode("ascii"))
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
+def search_dirs():
+    """Folders that may hold DATA_FILE, best guess first.
+    NOTE: inside Blender's text editor (Run Script) __file__ is '<blend path>/<text name>', NOT the real location of
+    the script, so it cannot be trusted alone: also look at the file paths of the text blocks and of the .blend."""
+    dirs = []
+    try:
+        dirs.append(os.path.dirname(os.path.abspath(__file__)))
     except NameError:
         pass
     if IN_BLENDER:
-        for p in (bpy.path.abspath("//"), os.path.dirname(bpy.data.filepath or ""), os.getcwd()):
-            if p and os.path.exists(os.path.join(p, DATA_FILE)):
-                return p
-        for t in bpy.data.texts:                       # script opened from a saved text block
-            p = os.path.dirname(bpy.path.abspath(t.filepath)) if t.filepath else ""
-            if p and os.path.exists(os.path.join(p, DATA_FILE)):
-                return p
-    return os.getcwd()
+        try:                                           # the text block that is being run right now
+            st = bpy.context.space_data
+            if getattr(st, "type", "") == "TEXT_EDITOR" and st.text and st.text.filepath:
+                dirs.append(os.path.dirname(bpy.path.abspath(st.text.filepath)))
+        except Exception:
+            pass
+        for t in bpy.data.texts:                       # any text block that was opened from a file on disk
+            if t.filepath:
+                dirs.append(os.path.dirname(bpy.path.abspath(t.filepath)))
+        dirs.append(bpy.path.abspath("//"))
+        dirs.append(os.path.dirname(bpy.data.filepath or ""))
+    dirs.append(os.getcwd())
+    out = []
+    for p in dirs:
+        if p and p not in out:
+            out.append(p)
+    return out
+
+
+def find_data_file():
+    fname = DATA_FILES[LAYOUT]
+    if os.path.isabs(fname):
+        cands = [fname]
+    else:
+        cands = [os.path.join(p, fname) for p in search_dirs()]
+    for c in cands:
+        if os.path.isfile(c):
+            return c
+    raise FileNotFoundError(
+        "Cannot find %s. Looked in:\n  %s\nPut the .npz data files in the same folder as build_sultan_plaque.py and open the script with "
+        "Text > Open (do not paste it), or set DATA_FILES to the full path.\n"
+        "لم يتم العثور على ملف البيانات: ضعه في نفس مجلد السكربت." % (fname, "\n  ".join(cands)))
+
 
 
 def load_layers(path):
-    if not os.path.exists(path):
-        raise FileNotFoundError(
-            "Cannot find %s\nPut sultan_emblem_layers.npz next to build_sultan_plaque.py (or set DATA_FILE to an "
-            "absolute path).\nلم يتم العثور على ملف البيانات: ضعه في نفس مجلد السكربت." % path)
-    d = np.load(path)
-    return {k: d[k] for k in d.files}
+    with np.load(path) as d:
+        return {k: d[k] for k in d.files}
 
 
 def directed_edges(ring_v, ring_len, ring_face):
@@ -227,7 +279,7 @@ class Acc:
         walls share identical vertical edges (no T-junctions)."""
         simple = np.ones(len(a), bool)
         for i in range(len(a)):
-            for n, ok in ((int(a[i]), 0), (int(b[i]), 1)):
+            for n in (int(a[i]), int(b[i])):
                 z = node_z.get(n)
                 if z is not None and ((z > lo[i] + 1e-9) & (z < hi[i] - 1e-9)).any():
                     simple[i] = False
@@ -359,16 +411,16 @@ def build_prism(L, sel_faces, z0, z1, scale):
 #  checks + writers
 # =============================================================================================================
 def check_mesh(V, F):
-    e = np.sort(np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]]), axis=1)
-    _, cnt = np.unique(e, axis=0, return_counts=True)
+    de = np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]]).astype(np.int64)
+    e = np.sort(de, axis=1)
+    _, cnt = np.unique(e[:, 0] * len(V) + e[:, 1], return_counts=True)             # (fast: 1-D integer keys)
     # winding consistency: every directed edge must occur exactly once
-    de = np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]])
-    key = de[:, 0].astype(np.int64) * len(V) + de[:, 1]
+    key = de[:, 0] * len(V) + de[:, 1]
     consistent = len(np.unique(key)) == len(key)
     tri = V[F]
     vol = float(np.einsum("ij,ij->i", tri[:, 0], np.cross(tri[:, 1], tri[:, 2])).sum() / 6.0)
     return dict(tris=len(F), verts=len(V), open_or_nonmanifold_edges=int((cnt != 2).sum()), winding_ok=consistent,
-                watertight=bool((cnt == 2).all() and consistent), volume_mm3=vol,
+                watertight=bool((cnt == 2).all() and consistent and vol > 0.0), volume_mm3=vol,
                 bbox_min=V.min(0).round(3).tolist(), bbox_max=V.max(0).round(3).tolist())
 
 
@@ -385,12 +437,76 @@ def write_stl(path, V, F, name="SMB87"):
         fh.write(rec.tobytes())
 
 
+def read_stl(path):
+    """binary STL -> (V, F) with vertices merged on a 1e-4 mm grid (what a slicer does on import)"""
+    with open(path, "rb") as fh:
+        fh.read(80)
+        n = int(np.frombuffer(fh.read(4), dtype="<u4")[0])
+        rec = np.frombuffer(fh.read(n * 50), dtype=[("n", "<f4", 3), ("v", "<f4", (3, 3)), ("a", "<u2")], count=n)
+    pts = rec["v"].reshape(-1, 3).astype(np.float64)
+    key = np.round(pts * 1e4).astype(np.int64)
+    uniq, inv = np.unique(key, axis=0, return_inverse=True)
+    return uniq / 1e4, inv.reshape(-1, 3)
+
+
+def verify_stl(path):
+    V, F = read_stl(path)
+    ok = (F[:, 0] != F[:, 1]) & (F[:, 1] != F[:, 2]) & (F[:, 0] != F[:, 2])
+    return check_mesh(V, F[ok]), int((~ok).sum())
+
+
+class Progress:
+    """console line + Blender progress bar / status-bar text + forced redraw, so the window does not look frozen"""
+
+    def __init__(self, total):
+        self.n, self.total = 0, total
+        self.gui = IN_BLENDER and not bpy.app.background
+        if self.gui:
+            try:
+                bpy.context.window_manager.progress_begin(0, total)
+            except Exception:
+                self.gui = False
+
+    def step(self, msg):
+        log("[SMB87] " + msg)
+        self.n += 1
+        if self.gui:
+            try:
+                bpy.context.window_manager.progress_update(self.n)
+                bpy.context.workspace.status_text_set("SMB87: " + msg)
+                bpy.ops.wm.redraw_timer(type="DRAW_WIN_SWAP", iterations=1)
+            except Exception:
+                pass
+
+    def end(self):
+        if self.gui:
+            try:
+                bpy.context.window_manager.progress_end()
+                bpy.context.workspace.status_text_set(None)
+            except Exception:
+                pass
+
+
+def popup(title, lines, icon="INFO"):
+    """small message box in the Blender window (the console is hidden for most users)"""
+    if not IN_BLENDER or bpy.app.background:
+        return
+    try:
+        def draw(self, context):
+            for ln in lines:
+                self.layout.label(text=ln)
+        bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
+    except Exception:
+        pass
+
+
+
 def write_3mf(path, parts, title="SMB87 plaque"):
     """parts: list of (name, V, F, (r,g,b)). One assembly object with one mesh component per colour."""
     mats = "".join('<base name="%s" displaycolor="#%02X%02X%02XFF"/>' % (n, *c) for n, _, _, c in parts)
     objs, comps = [], []
     for i, (n, V, F, c) in enumerate(parts):
-        vx = "".join("<vertex x=\"%.4f\" y=\"%.4f\" z=\"%.4f\"/>" % tuple(v) for v in V)
+        vx = "".join("<vertex x=\"%.3f\" y=\"%.3f\" z=\"%.3f\"/>" % tuple(v) for v in V)
         tr = "".join("<triangle v1=\"%d\" v2=\"%d\" v3=\"%d\"/>" % tuple(t) for t in F)
         objs.append('<object id="%d" name="%s" type="model" pid="1" pindex="%d"><mesh><vertices>%s</vertices>'
                     '<triangles>%s</triangles></mesh></object>' % (i + 2, n, i, vx, tr))
@@ -417,6 +533,11 @@ def write_3mf(path, parts, title="SMB87 plaque"):
 # =============================================================================================================
 #  Blender scene
 # =============================================================================================================
+def srgb_to_linear(c255):
+    c = c255 / 255.0
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
 def make_object(name, V, F, rgb, collection):
     me = bpy.data.meshes.new(name)
     me.from_pydata(V.tolist(), [], F.tolist())
@@ -424,9 +545,10 @@ def make_object(name, V, F, rgb, collection):
     ob = bpy.data.objects.new(name, me)
     collection.objects.link(ob)
     mat = bpy.data.materials.new("MAT_" + name)
-    col = (rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0, 1.0)
+    col = tuple(srgb_to_linear(v) for v in rgb) + (1.0,)     # Blender colour sockets are scene-LINEAR, PART_COLORS are sRGB
     try:
-        mat.use_nodes = True
+        if getattr(mat, "node_tree", None) is None:          # Blender < 5.0: nodes must be switched on first
+            mat.use_nodes = True                             # (5.x creates the node tree itself; the flag is deprecated)
         bsdf = mat.node_tree.nodes.get("Principled BSDF")
         if bsdf:
             bsdf.inputs["Base Color"].default_value = col
@@ -438,17 +560,56 @@ def make_object(name, V, F, rgb, collection):
     return ob
 
 
-def build_scene(parts, merged, diameter):
+def remove_previous_result(name):
+    """re-running the script replaces the previous result: objects AND their meshes / materials (no '.001' leftovers)"""
+    old = bpy.data.collections.get(name)
+    if old is not None:
+        for ob in list(old.objects):
+            me = ob.data if ob.type == "MESH" else None
+            bpy.data.objects.remove(ob, do_unlink=True)
+            if me is not None and me.users == 0:
+                mats = [m for m in me.materials if m is not None]
+                bpy.data.meshes.remove(me)
+                for m in mats:
+                    if m.users == 0:
+                        bpy.data.materials.remove(m)
+        bpy.data.collections.remove(old)
+    for me in [m for m in bpy.data.meshes if m.name.startswith("SMB87_") and m.users == 0]:   # orphans of older runs
+        bpy.data.meshes.remove(me)
+    for m in [m for m in bpy.data.materials if m.name.startswith("MAT_SMB87_") and m.users == 0]:
+        bpy.data.materials.remove(m)
+
+
+def frame_viewports():
+    """top view of the whole plaque in every 3D viewport (otherwise the user sits inside the 238 mm plate)"""
+    try:
+        for win in bpy.context.window_manager.windows:
+            for area in win.screen.areas:
+                if area.type == "VIEW_3D":
+                    region = next((r for r in area.regions if r.type == "WINDOW"), None)
+                    with bpy.context.temp_override(window=win, area=area, region=region):
+                        bpy.ops.view3d.view_axis(type="TOP")
+                        bpy.ops.view3d.view_all(center=False)
+    except Exception:
+        pass
+
+
+def build_scene(parts, merged, size):
     sc = bpy.context.scene
     sc.unit_settings.system = "METRIC"
     sc.unit_settings.scale_length = 0.001
     sc.unit_settings.length_unit = "MILLIMETERS"
     name = "SMB87_Plaque"
-    if name in bpy.data.collections:                         # re-running the script replaces the previous result
-        old = bpy.data.collections[name]
-        for ob in list(old.objects):
-            bpy.data.objects.remove(ob, do_unlink=True)
-        bpy.data.collections.remove(old)
+    remove_previous_result(name)
+    cube = bpy.data.objects.get("Cube")                      # the untouched factory start-up cube (2 x 2 x 2 at the origin)
+    if cube is not None and cube.type == "MESH" and len(cube.data.vertices) == 8 and cube.location.length < 1e-6 \
+            and all(abs(d - 2.0) < 1e-4 for d in cube.dimensions):
+        cube.hide_viewport = True
+        cube.hide_render = True
+    lamp = bpy.data.objects.get("Light")                     # ... and the factory point light, now only 6 mm above the plate
+    if lamp is not None and lamp.type == "LIGHT" and lamp.data.type == "POINT" and (
+            lamp.location - Vector((4.0762, 1.0055, 5.9039))).length < 0.01:
+        lamp.hide_render = True
     col = bpy.data.collections.new(name)
     sc.collection.children.link(col)
     for n, V, F, c in parts:
@@ -458,85 +619,199 @@ def build_scene(parts, merged, diameter):
         ob.hide_viewport = True
         ob.hide_render = True
     cam = bpy.data.objects.get("SMB87_Camera")
-    if cam is None:
+    if cam is None or cam.type != "CAMERA":
         cd = bpy.data.cameras.new("SMB87_Camera")
         cam = bpy.data.objects.new("SMB87_Camera", cd)
+    if cam.name not in sc.objects:
         sc.collection.objects.link(cam)
     cam.data.type = "ORTHO"
-    cam.data.ortho_scale = diameter * 1.08
+    cam.data.ortho_scale = size * 1.08                   # = width of the (square) frame, see resolution below
     cam.location = (0, 0, 300)
     cam.rotation_euler = (0, 0, 0)
     cam.data.clip_end = 2000
     sc.camera = cam
-    if bpy.data.objects.get("SMB87_Sun") is None:
+    sc.render.resolution_x = sc.render.resolution_y = 2000   # square frame: 1920 x 1080 would crop 46 mm off top and bottom
+    sc.render.resolution_percentage = 100
+    lamp = bpy.data.objects.get("SMB87_Sun")
+    if lamp is None or lamp.type != "LIGHT":
         ld = bpy.data.lights.new("SMB87_Sun", "SUN")
         ld.energy = 3.0
-        lo = bpy.data.objects.new("SMB87_Sun", ld)
-        sc.collection.objects.link(lo)
-        lo.rotation_euler = (np.radians(35), np.radians(-25), np.radians(30))
+        lamp = bpy.data.objects.new("SMB87_Sun", ld)
+        lamp.rotation_euler = (np.radians(35), np.radians(-25), np.radians(30))
+    if lamp.name not in sc.objects:
+        sc.collection.objects.link(lamp)
+    frame_viewports()
+
 
 
 # =============================================================================================================
 #  main
 # =============================================================================================================
+EDGE_MARGIN = 3.0                          # mm of solid kept between a keyhole pocket and the outer edge of the plaque
+
+
+def validate_settings():
+    """stop with a clear message instead of silently writing a broken / empty file"""
+    if LAYOUT not in DATA_FILES:
+        raise ValueError('LAYOUT must be "full" or "round"')
+    size = float(PLAQUE_SIZE[LAYOUT])
+    if not size > 0:
+        raise ValueError("PLAQUE_SIZE must be > 0")
+    if not BASE_THICKNESS > 0:
+        raise ValueError("BASE_THICKNESS must be > 0")
+    for k in CLASS_ID:
+        if k not in RELIEF:
+            raise ValueError("RELIEF has no entry for '%s'" % k)
+        if not RELIEF[k] >= 0:
+            raise ValueError("RELIEF['%s'] must be 0 or more (0 = flush with the black back plate, no separate part)" % k)
+    if not HANGERS:
+        return
+    if not 0 < HANGER_DEPTH <= BASE_THICKNESS - 0.8 + 1e-9:
+        raise ValueError("HANGER_DEPTH must be > 0 and at most BASE_THICKNESS - 0.8 mm")
+    R, r = HANGER_HEAD_D / 2.0, HANGER_SLOT_W / 2.0
+    if not 0 < r < R:
+        raise ValueError("HANGER_SLOT_W must be > 0 and smaller than HANGER_HEAD_D")
+    if HANGER_SLOT_LEN <= (R * R - r * r) ** 0.5:
+        raise ValueError("HANGER_SLOT_LEN is too short: it must be more than %.2f mm" % ((R * R - r * r) ** 0.5))
+    boxes = []
+    for (x, y) in HANGER_POSITIONS:
+        o = keyhole_outline(x, y, HANGER_HEAD_D, HANGER_SLOT_W, HANGER_SLOT_LEN)
+        reach = float(np.hypot(o[:, 0], o[:, 1]).max()) if LAYOUT == "round" else float(np.abs(o).max())
+        room = size / 2.0 - EDGE_MARGIN
+        if reach > room:
+            raise ValueError("The keyhole at (%.1f, %.1f) mm reaches %.1f mm from the centre, but this plaque only has room "
+                             "for %.1f mm. Move HANGER_POSITIONS closer to the centre or set HANGERS = False."
+                             % (x, y, reach, room))
+        boxes.append((o[:, 0].min(), o[:, 0].max(), o[:, 1].min(), o[:, 1].max()))
+    for i in range(len(boxes)):
+        for j in range(i + 1, len(boxes)):
+            a, b = boxes[i], boxes[j]
+            if a[0] < b[1] + 1.0 and b[0] < a[1] + 1.0 and a[2] < b[3] + 1.0 and b[2] < a[3] + 1.0:
+                raise ValueError("HANGER_POSITIONS %d and %d overlap (keep the pockets at least 1 mm apart)" % (i + 1, j + 1))
+
+
+def resolve_output_dir(data_path):
+    if OUTPUT_DIR:
+        p = os.path.expanduser(str(OUTPUT_DIR))                # '~/Desktop/x'
+        if IN_BLENDER:
+            p = bpy.path.abspath(p)                            # '//x' = next to the saved .blend
+        return os.path.abspath(p)
+    return os.path.join(os.path.dirname(os.path.abspath(data_path)), "SMB87_output")
+
+
+PART_ORDER = ["black", "red", "green", "cream", "tan", "brown", "plate", "ghost", "copper", "mark"]
+
+
 def main():
     t0 = time.time()
-    folder = script_dir()
-    data_path = DATA_FILE if os.path.isabs(DATA_FILE) else os.path.join(folder, DATA_FILE)
+    prog = Progress(9)
+    try:
+        return _main(t0, prog)
+    finally:
+        prog.end()
+
+
+def _main(t0, prog):
+    validate_settings()
+    data_path = find_data_file()
     L = load_layers(data_path)
-    scale = PLAQUE_DIAMETER / float(L["nominal_diameter_mm"])
-    out_dir = OUTPUT_DIR or os.path.join(os.path.dirname(os.path.abspath(data_path)), "SMB87_output")
-    os.makedirs(os.path.join(out_dir, "parts"), exist_ok=True)
+    size = float(PLAQUE_SIZE[LAYOUT])
+    scale = size / float(L["nominal_extent_mm"])
+    out_dir = resolve_output_dir(data_path)
+    parts_dir = os.path.join(out_dir, "parts_%s" % LAYOUT)
+    tag = "SMB87_%s_%dmm" % (LAYOUT, int(round(size)))
 
-    fit = max(PLAQUE_DIAMETER + 2 * BED_SAFE_MARGIN - BED_XY[0], PLAQUE_DIAMETER + 2 * BED_SAFE_MARGIN - BED_XY[1])
-    print("[SMB87] plaque diameter %.1f mm  (bed %.0f x %.0f)  %s" % (
-        PLAQUE_DIAMETER, BED_XY[0], BED_XY[1], "FITS" if fit <= 0 else "WARNING: too large for the bed with the safety margin"))
-    if HANGERS and HANGER_DEPTH > BASE_THICKNESS - 0.8:
-        raise ValueError("HANGER_DEPTH must be at most BASE_THICKNESS - 0.8 mm")
+    fit = size + 2 * BED_SAFE_MARGIN - min(BED_XY)
+    prog.step("layout %s | plaque %s %.1f mm | bed %.0f x %.0f | %s" % (
+        LAYOUT, "side" if LAYOUT == "full" else "diameter", size, BED_XY[0], BED_XY[1],
+        "FITS" if fit <= 0 else "WARNING: too large for the bed with the safety margin"))
 
-    cls = L["face_class"]
-    rel = np.array([RELIEF[CLASS_NAME[c]] for c in range(1, 7)])
-    heights = BASE_THICKNESS + rel[cls.astype(int) - 1]
+    cls = L["face_class"].astype(int).copy()
+    if not INCLUDE_WATERMARK:
+        cls[cls == CLASS_ID["mark"]] = CLASS_ID["plate"]               # the TikTok mark becomes plain plate
+    rel_by_class = np.zeros(max(CLASS_NAME) + 1)
+    for c, n in CLASS_NAME.items():
+        rel_by_class[c] = RELIEF[n]
+    heights = BASE_THICKNESS + rel_by_class[cls]
     holes = HANGER_POSITIONS if HANGERS else []
 
+    prog.step("building the merged solid ...")
     merged = build_shell(L, heights, scale, holes, HANGER_DEPTH)
     rep = check_mesh(*merged)
-    print("[SMB87] merged solid : %d tris | watertight=%s | non-manifold edges=%d | volume %.1f cm3 | bbox %s .. %s" % (
+    log("[SMB87] merged solid : %d tris | watertight=%s | non-manifold edges=%d | volume %.1f cm3 | bbox %s .. %s" % (
         rep["tris"], rep["watertight"], rep["open_or_nonmanifold_edges"], rep["volume_mm3"] / 1000.0,
         rep["bbox_min"], rep["bbox_max"]))
 
+    prog.step("building the colour parts ...")
     parts = []
     black_h = np.where(cls == CLASS_ID["black"], heights, BASE_THICKNESS)       # black part = back plate + black relief
     V, F = build_shell(L, black_h, scale, holes, HANGER_DEPTH)
     parts.append(("black", V, F, PART_COLORS["black"]))
-    for n in ("red", "green", "cream", "tan", "brown"):
+    present = set(int(c) for c in np.unique(cls))
+    for n in PART_ORDER[1:]:
+        if CLASS_ID[n] not in present:
+            continue
+        if RELIEF[n] <= 1e-9:
+            log("[SMB87] note: %s has relief 0 -> it stays flush with the black back plate (no separate part)" % n)
+            continue
         V, F = build_prism(L, cls == CLASS_ID[n], BASE_THICKNESS, BASE_THICKNESS + RELIEF[n], scale)
         parts.append((n, V, F, PART_COLORS[n]))
-    tot = 0.0
+    tot, bad = 0.0, [] if rep["watertight"] else ["merged solid"]
     for n, V, F, c in parts:
         r = check_mesh(V, F)
         tot += r["volume_mm3"]
-        print("[SMB87] part %-6s: %7d tris | watertight=%s | volume %8.1f mm3" % (n, r["tris"], r["watertight"], r["volume_mm3"]))
-    print("[SMB87] sum of parts %.1f mm3 vs merged %.1f mm3 (difference %.3f)" % (tot, rep["volume_mm3"], tot - rep["volume_mm3"]))
+        if not r["watertight"]:
+            bad.append("part " + n)
+        log("[SMB87] part %-6s: %7d tris | watertight=%s | volume %8.1f mm3" % (n, r["tris"], r["watertight"], r["volume_mm3"]))
+    log("[SMB87] sum of parts %.1f mm3 vs merged %.1f mm3 (difference %.3f)" % (tot, rep["volume_mm3"], tot - rep["volume_mm3"]))
+    if abs(tot - rep["volume_mm3"]) > 1e-4 * abs(rep["volume_mm3"]):
+        bad.append("sum of the parts differs from the merged solid")
+    prog.step("checks done")
+    if bad:                                                    # never hand a broken file to the slicer
+        raise RuntimeError("Mesh check FAILED (%s) - nothing was exported. Check the settings at the top of the script."
+                           % ", ".join(bad))
     pla = rep["volume_mm3"] / 1000.0 * 1.24
-    print("[SMB87] ~%.0f g of PLA at 100%% infill; roughly %.0f g with 20%% infill" % (pla, pla * 0.45))
+    log("[SMB87] ~%.0f g of PLA if printed solid (100%% infill); less with sparse infill" % pla)
 
+    if EXPORT_MERGED_STL or EXPORT_PARTS:
+        os.makedirs(parts_dir if EXPORT_PARTS else out_dir, exist_ok=True)
     if EXPORT_MERGED_STL:
-        p = os.path.join(out_dir, "SMB87_plaque_merged.stl")
+        prog.step("writing the merged STL ...")
+        p = os.path.join(out_dir, tag + "_merged.stl")
         write_stl(p, *merged, name="SMB87 merged")
-        print("[SMB87] wrote", p)
+        log("[SMB87] wrote", p)
+        if VERIFY_EXPORTS:
+            r2, dropped = verify_stl(p)
+            log("[SMB87] STL re-read + merged like a slicer: %d tris | watertight=%s | non-manifold edges=%d | degenerate tris dropped=%d | volume %.1f cm3"
+                % (r2["tris"], r2["watertight"], r2["open_or_nonmanifold_edges"], dropped, r2["volume_mm3"] / 1000.0))
+            if not r2["watertight"]:
+                raise RuntimeError("The written STL is not watertight after re-reading it - do not print it.")
     if EXPORT_PARTS:
+        prog.step("writing the part STLs and the 3MF ...")
         for n, V, F, c in parts:
-            write_stl(os.path.join(out_dir, "parts", "SMB87_%s.stl" % n), V, F, name="SMB87 " + n)
-        p = os.path.join(out_dir, "SMB87_plaque_parts.3mf")
+            write_stl(os.path.join(parts_dir, "SMB87_%s.stl" % n), V, F, name="SMB87 " + n)
+        p = os.path.join(out_dir, tag + "_parts.3mf")
         write_3mf(p, parts)
-        print("[SMB87] wrote", p, "and 6 part STL files")
+        log("[SMB87] wrote", p, "and %d part STL files in %s" % (len(parts), parts_dir))
     if IN_BLENDER and BUILD_IN_BLENDER:
-        build_scene(parts, merged, PLAQUE_DIAMETER)
-        print("[SMB87] scene built (collection SMB87_Plaque)")
-    print("[SMB87] done in %.1f s  ->  %s" % (time.time() - t0, out_dir))
+        prog.step("building the Blender scene ...")
+        build_scene(parts, merged, size)
+        log("[SMB87] scene built (collection SMB87_Plaque)")
+    secs = time.time() - t0
+    prog.step("done in %.1f s  ->  %s" % (secs, out_dir))
+    popup("SMB87 plaque finished", ["watertight, %.1f cm3, ~%.0f g PLA if solid" % (rep["volume_mm3"] / 1000.0, pla),
+                                    "files: " + (out_dir if (EXPORT_MERGED_STL or EXPORT_PARTS) else "(export is off)"),
+                                    "details: Window > Toggle System Console"])
     return dict(report=rep, parts=parts, merged=merged, out_dir=out_dir)
 
 
+def run():
+    try:
+        return main()
+    except Exception as exc:
+        popup("SMB87 plaque - FAILED", [ln.strip() for ln in str(exc).splitlines() if ln.strip() and ln.isascii()][:8], "ERROR")
+        raise
+
+
 if __name__ == "__main__" or IN_BLENDER:
-    RESULT = main()
+    RESULT = run()

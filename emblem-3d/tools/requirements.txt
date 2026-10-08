@@ -1,7 +1,9 @@
-numpy
-scipy
-opencv-python-headless
-scikit-image
-shapely>=2.0.4
-mapbox-earcut
-trimesh[easy]
+manifold3d==3.5.4
+mapbox_earcut==2.1.0
+numpy==2.5.3
+opencv-python-headless==5.0.0.93
+pillow==12.3.0
+scikit-image==0.26.0
+scipy==1.18.1
+shapely==2.2.0
+trimesh==5.1.1

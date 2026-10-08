@@ -10,7 +10,7 @@ src = sys.argv[1] if len(sys.argv) > 1 else 'faces_raw.pkl'
 dst = sys.argv[2] if len(sys.argv) > 2 else 'emblem_faces.npz'
 d = pickle.load(open(src, 'rb'))
 faces, cls = d['faces'], np.asarray(d['cls'])
-REL = {1: 1.2, 2: 0.8, 3: 0.4, 4: 0.4, 5: 0.6, 6: 0.8}      # default relief, only used to pick the split orientation
+REL = {1: 1.2, 2: 0.8, 3: 0.4, 4: 0.4, 5: 0.6, 6: 0.8, 7: 0.4, 8: 0.8, 9: 0.8, 10: 0.8}      # default relief, only used to pick the split orientation
 SPLIT_EPS_UM = 4.0
 
 vid, verts = {}, []
@@ -173,10 +173,20 @@ dup = int(np.sum(skey[1:] == skey[:-1]))
 pos = np.minimum(np.searchsorted(skey, tkey), len(skey) - 1)
 has = skey[pos] == tkey
 nt = np.where(~has)[0]
-r = np.hypot(verts[ea[nt], 0], verts[ea[nt], 1]) / 1000.0
+# the edges without twin must form exactly ONE closed loop (the outer outline of the plaque)
+succ = {int(ea[i]): int(eb[i]) for i in nt}
+loop_ok = False
+if len(succ) == len(nt) and len(nt):
+    s0 = next(iter(succ)); cur = succ[s0]; n = 1
+    while cur != s0 and n <= len(nt):
+        cur = succ[cur]; n += 1
+    loop_ok = (cur == s0 and n == len(nt))
+rimx = np.abs(verts[ea[nt], 0]) / 1000.0; rimy = np.abs(verts[ea[nt], 1]) / 1000.0
 print('rings', len(ring_len), 'verts', N, 'directed edges', len(key), '| duplicate directed edges', dup,
-      '| edges without twin', len(nt), '(rim radius %.3f-%.3f mm)' % (r.min(), r.max()) if len(nt) else '',
-      '| twinless NOT on rim:', int((r < 118.0).sum()) if len(nt) else 0)
+      '| edges without twin', len(nt), '| they form ONE closed outline loop:', loop_ok)
+if not loop_ok or dup:
+    raise SystemExit('conformity check FAILED')
 np.savez_compressed(dst, verts=verts, ring_v=ring_v, ring_len=ring_len, ring_face=ring_face, ring_hole=ring_hole,
-                    face_class=face_class)
+                    face_class=face_class, nominal_extent_mm=np.float64(d.get('extent', 238.0)),
+                    layout=np.array(d.get('layout', 'round')))
 print('saved', dst, '%.2f MB' % (os.path.getsize(dst) / 1e6))
