@@ -8,10 +8,11 @@ import { createStore, toolDefs, systemPrompt } from "./tools.mjs";
 
 const dir = fileURLToPath(new URL(".", import.meta.url));
 const configPath = process.env.CLIENT_CONFIG || join(dir, "clinic.example.json");
-const config = JSON.parse(await readFile(configPath, "utf8"));
+export const config = JSON.parse(await readFile(configPath, "utf8"));
 const store = createStore(config);
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 const KEY = process.env.ANTHROPIC_API_KEY;
+export const MODE = KEY ? "claude" : "mock";
 const MAX_TURNS = 6;
 
 async function callClaude(messages) {

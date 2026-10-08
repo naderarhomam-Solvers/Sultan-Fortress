@@ -1,0 +1,24 @@
+{
+  "business_name": "صالون لمسة (Demo)",
+  "business_name_en": "Lamsa Beauty Salon (Demo)",
+  "tone": "ودود وأنيق ومختصر",
+  "languages": ["ar", "en"],
+  "timezone": "Africa/Tripoli",
+  "working_hours": "السبت–الخميس 10:00–20:00، الجمعة مغلق",
+  "address": "طرابلس — عنوان تجريبي",
+  "services": [
+    { "id": "haircut", "name": "قص وتصفيف", "name_en": "Haircut & styling", "duration_min": 45, "price": "50 د.ل" },
+    { "id": "color", "name": "صبغة شعر", "name_en": "Hair colour", "duration_min": 120, "price": "من 150 د.ل" },
+    { "id": "makeup", "name": "مكياج سهرة", "name_en": "Evening makeup", "duration_min": 60, "price": "120 د.ل" },
+    { "id": "bridal", "name": "حزمة عروس", "name_en": "Bridal package", "duration_min": 240, "price": "يُحدد بعد استشارة" }
+  ],
+  "faq": [
+    { "q": "هل يلزم حجز مسبق؟", "a": "نعم، نفضّل الحجز المسبق لضمان الوقت المناسب لكِ." },
+    { "q": "هل تقبلون الدفع بالبطاقة؟", "a": "يرجى التواصل مع الاستقبال لتأكيد طرق الدفع المتاحة." }
+  ],
+  "slots": { "days_ahead": 7, "start_hour": 10, "end_hour": 18, "step_min": 30, "closed_weekdays": [5] },
+  "handoff": {
+    "triggers": ["شكوى", "حساسية", "استرجاع", "مبلغ مسترد", "عروس", "complaint", "allergy", "refund", "bridal"],
+    "notify": "reception@example.com"
+  }
+}
