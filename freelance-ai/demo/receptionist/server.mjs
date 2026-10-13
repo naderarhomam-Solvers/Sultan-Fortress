@@ -6,13 +6,15 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStore, toolDefs, systemPrompt } from "./tools.mjs";
+import { buildIcs } from "./ics.mjs";
+import { startReminderLoop } from "./reminders.mjs";
 import { sanitizeHistory, createLimiter } from "./guards.mjs";
-import { verifySignature, verifyChallenge, makeSender, createWhatsAppHandler } from "./whatsapp.mjs";
+import { verifySignature, verifyChallenge, makeSender, makeTemplateSender, createWhatsAppHandler } from "./whatsapp.mjs";
 
 const dir = fileURLToPath(new URL(".", import.meta.url));
 const configPath = process.env.CLIENT_CONFIG || join(dir, "clinic.example.json");
 export const config = JSON.parse(await readFile(configPath, "utf8"));
-const store = createStore(config);
+const store = createStore(config, { file: process.env.BOOKINGS_FILE }); // set BOOKINGS_FILE for durable bookings
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 const KEY = process.env.ANTHROPIC_API_KEY;
 export const MODE = KEY ? "claude" : "mock";
@@ -39,15 +41,15 @@ async function logTurn(meta, history, out) {
 }
 
 export async function chat(history, meta = {}) {
-  const out = await chatInner(history);
+  const out = await chatInner(history, meta);
   await logTurn(meta, history, out);
   return out;
 }
 
-async function chatInner(history) {
+async function chatInner(history, meta = {}) {
   const trace = [];
   const messages = history.map((m) => ({ role: m.role, content: m.content }));
-  if (!KEY) return mockChat(messages, trace);
+  if (!KEY) return mockChat(messages, trace, meta);
   for (let i = 0; i < MAX_TURNS; i++) {
     const out = await callClaude(messages);
     const uses = out.content.filter((b) => b.type === "tool_use");
@@ -56,7 +58,7 @@ async function chatInner(history) {
     }
     messages.push({ role: "assistant", content: out.content });
     const results = uses.map((u) => {
-      const result = store.run(u.name, u.input);
+      const result = store.run(u.name, u.input, meta);
       trace.push({ tool: u.name, input: u.input, result });
       return { type: "tool_result", tool_use_id: u.id, content: JSON.stringify(result) };
     });
@@ -65,7 +67,7 @@ async function chatInner(history) {
   return { reply: "عذرًا، سأحوّلك إلى موظف الاستقبال. / Sorry, let me hand you to our staff.", trace };
 }
 
-function mockChat(messages, trace) {
+function mockChat(messages, trace, meta = {}) {
   const last = String(messages.at(-1)?.content ?? "");
   const risky = config.handoff.triggers.some((t) => last.toLowerCase().includes(t.toLowerCase()));
   if (risky) {
@@ -113,6 +115,16 @@ export const server = http.createServer(async (req, res) => {
       }
     }
     if (req.method === "GET" && url.pathname === "/api/state") return json(res, 200, { mode: MODE });
+    if (req.method === "GET" && url.pathname === "/calendar.ics") {
+      if (!process.env.CALENDAR_TOKEN || !same(url.searchParams.get("token"), process.env.CALENDAR_TOKEN)) return json(res, 404, { error: "not found" });
+      res.writeHead(200, { "content-type": "text/calendar; charset=utf-8", "cache-control": "no-store" });
+      return res.end(buildIcs(store.bookings, config));
+    }
+    if (req.method === "POST" && url.pathname === "/api/admin/cancel") {
+      if (!process.env.ADMIN_TOKEN || !same(req.headers["x-admin-token"], process.env.ADMIN_TOKEN)) return json(res, 401, { error: "unauthorized" });
+      const { id } = JSON.parse(await readBody(req, 2_000));
+      return store.cancel(String(id)) ? json(res, 200, { cancelled: true }) : json(res, 404, { error: "booking not found" });
+    }
     if (req.method === "GET" && url.pathname === "/api/admin/state") {
       if (!process.env.ADMIN_TOKEN || !same(req.headers["x-admin-token"], process.env.ADMIN_TOKEN)) return json(res, 401, { error: "unauthorized" });
       return json(res, 200, { mode: MODE, bookings: store.bookings, handoffs: store.handoffs });
@@ -147,5 +159,10 @@ export const server = http.createServer(async (req, res) => {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = process.env.PORT || 3000;
+  if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID && process.env.REMINDER_TEMPLATE) {
+    if (!process.env.BOOKINGS_FILE) console.error("REMINDER_TEMPLATE set without BOOKINGS_FILE: reminders disabled (state would be lost on restart)");
+    else startReminderLoop({ store, config, template: process.env.REMINDER_TEMPLATE, language: process.env.REMINDER_LANG || "ar",
+      hoursBefore: Number(process.env.REMINDER_HOURS) || 24, sendTemplate: makeTemplateSender({ token: process.env.WHATSAPP_TOKEN, phoneId: process.env.WHATSAPP_PHONE_ID }) });
+  }
   server.listen(port, () => console.log(`Receptionist demo on http://localhost:${port} (${KEY ? "Claude " + MODEL : "MOCK mode — set ANTHROPIC_API_KEY"})`));
 }

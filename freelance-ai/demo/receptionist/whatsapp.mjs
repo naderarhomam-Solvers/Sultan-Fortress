@@ -33,6 +33,17 @@ export function makeSender({ token, phoneId, fetchImpl = fetch }) {
   };
 }
 
+export function makeTemplateSender({ token, phoneId, fetchImpl = fetch }) {
+  return async (to, name, language, params) => {
+    const res = await fetchImpl(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", to, type: "template", template: { name, language: { code: language }, components: [{ type: "body", parameters: params.map((text) => ({ type: "text", text: String(text) })) }] } }),
+    });
+    if (!res.ok) throw new Error(`WhatsApp template send ${res.status}: ${await res.text()}`);
+  };
+}
+
 const NON_TEXT = "عذرًا، أستطيع قراءة الرسائل النصية فقط حاليًا. اكتب لي طلبك وسأساعدك 🌿 / Sorry, I can only read text messages.";
 const BUSY = "عذرًا، حدث خطأ مؤقت. سيتواصل معك أحد موظفينا قريبًا. / Sorry, a temporary error occurred; our staff will contact you.";
 
@@ -57,6 +68,8 @@ export function createWhatsAppHandler({ chat, send, notifyStaff, limiter = () =>
         await send(m.from, out.reply);
         const h = out.trace.find((t) => t.tool === "handoff_to_human");
         if (h && notifyStaff) await notifyStaff(`تحويل من ${m.from}: ${h.input?.reason ?? ""} — ${h.input?.customer_summary ?? ""}`);
+        const bk = out.trace.find((t) => t.tool === "book_appointment" && t.result?.confirmed && !t.result.duplicate)?.result.booking;
+        if (bk && notifyStaff) await notifyStaff(`حجز جديد: ${bk.customer_name} — ${bk.service_id} — ${bk.date} ${bk.time} — ${bk.customer_phone}`);
       } catch (e) {
         log("whatsapp handler error:", e.message);
         try { await send(m.from, BUSY); } catch {}
