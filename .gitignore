@@ -1,0 +1,5 @@
+# بيانات التداول الشخصية والمفاتيح
+trader/
+.env
+*.key
+claude_desktop_config.json
