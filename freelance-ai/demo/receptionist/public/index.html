@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مُستقبِل — موظف الاستقبال الذكي</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b2430; --mute:#6b7685; --accent:#0f766e; --me:#dff5f1; --line:#e3e7ec; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#10151b; --card:#18202a; --ink:#e8edf2; --mute:#93a0ae; --accent:#2dd4bf; --me:#12403b; --line:#2a3542; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 system-ui, "Segoe UI", Tahoma, sans-serif; }
+  .wrap { max-width:560px; margin:0 auto; padding:16px; min-height:100dvh; display:flex; flex-direction:column; }
+  h1 { font-size:18px; margin:4px 0 12px; } h1 small { color:var(--mute); font-weight:400; }
+  #log { flex:1; display:flex; flex-direction:column; gap:8px; overflow-y:auto; padding:4px 0; }
+  .m { max-width:85%; padding:10px 14px; border-radius:14px; background:var(--card); border:1px solid var(--line); white-space:pre-wrap; }
+  .m.me { align-self:flex-end; background:var(--me); } .m.bot { align-self:flex-start; }
+  .tool { align-self:center; font-size:12px; color:var(--mute); }
+  form { display:flex; gap:8px; margin-top:12px; }
+  input { flex:1; padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); font:inherit; }
+  button { padding:0 18px; border:0; border-radius:10px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  button:disabled { opacity:.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>مُستقبِل <small>— عيادة الأمل (نسخة تجريبية) · <span id="mode"></span></small></h1>
+  <div id="log" role="log" aria-live="polite"></div>
+  <form id="f"><input id="t" autocomplete="off" placeholder="اكتب رسالتك… / Type a message" aria-label="message"><button id="b">إرسال</button></form>
+</div>
+<script>
+const log = document.getElementById("log"), f = document.getElementById("f"), t = document.getElementById("t"), b = document.getElementById("b");
+const history = [];
+const add = (cls, text) => { const d = document.createElement("div"); d.className = cls; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; };
+fetch("/api/state").then(r => r.json()).then(s => document.getElementById("mode").textContent = s.mode === "claude" ? "Claude" : "وضع تجريبي").catch(() => {});
+add("m bot", "أهلًا بك في عيادة الأمل لطب الأسنان 👋 كيف أقدر أساعدك؟");
+f.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = t.value.trim(); if (!text) return;
+  t.value = ""; b.disabled = true; add("m me", text); history.push({ role: "user", content: text });
+  try {
+    const r = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: history }) });
+    const out = await r.json(); if (!r.ok) throw new Error(out.error);
+    (out.trace || []).forEach(x => add("tool", "⚙ " + x.tool));
+    history.push({ role: "assistant", content: out.reply }); add("m bot", out.reply);
+  } catch (err) { add("tool", "خطأ: " + err.message); history.pop(); }
+  b.disabled = false; t.focus();
+});
+</script>
+</body>
+</html>
