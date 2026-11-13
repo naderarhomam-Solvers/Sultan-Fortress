@@ -4,6 +4,8 @@
   "tone": "ودود وأنيق ومختصر",
   "languages": ["ar", "en"],
   "timezone": "Africa/Tripoli",
+  "default_country_code": "218",
+  "retention_days": 90,
   "working_hours": "السبت–الخميس 10:00–20:00، الجمعة مغلق",
   "address": "طرابلس — عنوان تجريبي",
   "services": [

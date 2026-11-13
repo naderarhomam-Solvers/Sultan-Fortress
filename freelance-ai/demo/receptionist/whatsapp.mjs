@@ -44,6 +44,16 @@ export function makeTemplateSender({ token, phoneId, fetchImpl = fetch }) {
   };
 }
 
+/** Staff-facing alert lines for the handoffs/bookings in one chat turn (shared by WhatsApp and web). */
+export function staffAlerts(trace, who) {
+  const out = [];
+  const h = trace.find((t) => t.tool === "handoff_to_human");
+  if (h) out.push(`تحويل من ${who}: ${h.input?.reason ?? ""} — ${h.input?.customer_summary ?? ""}${h.input?.customer_phone ? ` — هاتف: ${h.input.customer_phone}` : ""}`);
+  const b = trace.find((t) => t.tool === "book_appointment" && t.result?.confirmed && !t.result.duplicate)?.result.booking;
+  if (b) out.push(`حجز جديد: ${b.customer_name} — ${b.service_id} — ${b.date} ${b.time} — ${b.customer_phone}`);
+  return out;
+}
+
 const NON_TEXT = "عذرًا، أستطيع قراءة الرسائل النصية فقط حاليًا. اكتب لي طلبك وسأساعدك 🌿 / Sorry, I can only read text messages.";
 const BUSY = "عذرًا، حدث خطأ مؤقت. سيتواصل معك أحد موظفينا قريبًا. / Sorry, a temporary error occurred; our staff will contact you.";
 
@@ -66,10 +76,7 @@ export function createWhatsAppHandler({ chat, send, notifyStaff, limiter = () =>
         s.messages.push({ role: "assistant", content: out.reply }); s.ts = now();
         sessions.set(m.from, s);
         await send(m.from, out.reply);
-        const h = out.trace.find((t) => t.tool === "handoff_to_human");
-        if (h && notifyStaff) await notifyStaff(`تحويل من ${m.from}: ${h.input?.reason ?? ""} — ${h.input?.customer_summary ?? ""}`);
-        const bk = out.trace.find((t) => t.tool === "book_appointment" && t.result?.confirmed && !t.result.duplicate)?.result.booking;
-        if (bk && notifyStaff) await notifyStaff(`حجز جديد: ${bk.customer_name} — ${bk.service_id} — ${bk.date} ${bk.time} — ${bk.customer_phone}`);
+        if (notifyStaff) for (const a of staffAlerts(out.trace, m.from)) await notifyStaff(a);
       } catch (e) {
         log("whatsapp handler error:", e.message);
         try { await send(m.from, BUSY); } catch {}

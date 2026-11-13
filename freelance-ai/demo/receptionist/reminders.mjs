@@ -26,13 +26,13 @@ export function startReminderLoop({ store, config, sendTemplate, template, langu
       for (const b of dueReminders(store.bookings, config, now(), { hoursBefore })) {
         try {
           await sendTemplate(b.wa_id, template, language, reminderParams(b, config));
-          store.update(b.id, { reminded_at: now().toISOString() });
+          store.update(b.id, { reminded_at: now().toISOString() }); // if this write fails the reminder may repeat after a restart: acceptable vs. losing it
         } catch (e) {
           log("reminder failed:", b.id, e.message);
-          store.update(b.id, { reminder_attempts: (b.reminder_attempts ?? 0) + 1 });
+          try { store.update(b.id, { reminder_attempts: (b.reminder_attempts ?? 0) + 1 }); } catch (e2) { log("reminder state not saved:", e2.message); }
         }
       }
-    } finally { running = false; }
+    } catch (e) { log("reminder tick failed:", e.message); } finally { running = false; }
   }
   const timer = setInterval(tick, intervalMs);
   timer.unref?.();

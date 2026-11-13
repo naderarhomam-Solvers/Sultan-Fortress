@@ -29,6 +29,11 @@ test("runs tools, returns tool_result with matching id, then final text", async 
   assert.equal(lastMsgs.at(-1).content[0].tool_use_id, "tu_1");
   assert.equal(lastMsgs.at(-2).role, "assistant");
   assert.ok(requests[0].body.system.includes("Never give medical advice"));
+  // the model never gets stored contact details back, only the booking essentials
+  const toolResult = JSON.stringify(requests[2].body.messages.at(-1).content);
+  assert.ok(toolResult.includes("tu_2") && toolResult.includes("Ali"));
+  assert.ok(!toolResult.includes("0911111111") && !toolResult.includes("customer_phone") && !toolResult.includes("wa_id"));
+  assert.equal(out.trace[1].result.booking.customer_phone, "0911111111"); // internal trace keeps it for staff alerts
 });
 
 test("API error surfaces; runaway tool loop ends with handoff message", async () => {

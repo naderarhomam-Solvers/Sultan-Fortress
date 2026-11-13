@@ -104,3 +104,96 @@ test("handoff is recorded; system prompt uses the business timezone date and car
   const p = systemPrompt(base, new Date("2026-10-11T22:30:00Z"));
   assert.match(p, /Today is 2026-10-12/); assert.match(p, /Never give medical advice/); assert.match(p, /cannot cancel or reschedule/);
 });
+
+// ---- regressions for the independent review ----
+const cfgWith = (slots = {}, extra = {}) => { const c = mk(extra); Object.assign(c.slots, slots); c.default_country_code = "218"; return c; };
+
+test("retry guard: same person only; no PII echoed; different name needs capacity; other WhatsApp sender is not a duplicate", () => {
+  const s = store(cfgWith({ capacity: 2 }));
+  const ctxA = { channel: "whatsapp", sender: "218911112222" };
+  const first = s.run("book_appointment", { date: DAY, time: "10:00", service_id: "checkup", customer_name: "Mona", customer_phone: "0911112222" }, ctxA);
+  assert.equal(first.confirmed, true);
+  const retry = s.run("book_appointment", { date: DAY, time: "10:00", service_id: "checkup", customer_name: " mona ", customer_phone: "+218 91 111 2222" }, ctxA);
+  assert.equal(retry.duplicate, true);
+  assert.deepEqual(Object.keys(retry.booking).sort(), ["date", "id", "service_id", "time"]);
+  // someone else who only knows the phone number must not get the stored booking back
+  const attacker = s.run("book_appointment", { date: DAY, time: "10:00", service_id: "checkup", customer_name: "Mona", customer_phone: "0911112222" }, { channel: "whatsapp", sender: "218900000000" });
+  assert.ok(!attacker.duplicate);
+  // mother books her daughter in the same slot with the same phone: a real second booking (fresh store, so the seat above is free)
+  const fam = store(cfgWith({ capacity: 2 }));
+  fam.run("book_appointment", { date: DAY, time: "10:00", service_id: "checkup", customer_name: "Mona", customer_phone: "0911112222" }, ctxA);
+  const daughter = fam.run("book_appointment", { date: DAY, time: "10:00", service_id: "checkup", customer_name: "Sara", customer_phone: "0911112222" }, ctxA);
+  assert.equal(daughter.confirmed, true); assert.ok(!daughter.duplicate); assert.equal(fam.bookings.length, 2);
+  const strict = store(cfgWith({ capacity: 1 }));
+  strict.run("book_appointment", { date: DAY, time: "10:00", service_id: "checkup", customer_name: "Mona", customer_phone: "0911112222" });
+  assert.equal(strict.run("book_appointment", { date: DAY, time: "10:00", service_id: "checkup", customer_name: "Sara", customer_phone: "0911112222" }).error, "slot not available");
+});
+
+test("phone spellings collapse to one canonical key (cap cannot be bypassed)", () => {
+  for (const v of ["0910000000", "+218910000000", "00218910000000", "+218 91 0000000", "910000000"]) assert.equal(normalizePhone(v, "218"), "218910000000", v);
+  assert.equal(normalizePhone("0000", "218"), null);
+  const s = store(cfgWith());
+  const spell = ["0910000000", "+218910000000", "00218910000000", "+218 91-0000000"];
+  const times = ["09:00", "09:30", "10:00", "10:30"];
+  const res = spell.map((p, i) => s.run("book_appointment", { date: DAY, time: times[i], service_id: "checkup", customer_name: "Ali", customer_phone: p }));
+  assert.equal(res.filter((r) => r.confirmed).length, 3);
+  assert.match(res[3].error, /too many upcoming/);
+});
+
+test("per-sender cap stops one visitor hoarding slots with invented numbers", () => {
+  const c = cfgWith({ max_per_sender: 2, max_per_phone: 99 }); const s = store(c);
+  const ctx = { channel: "web", sender: "9.9.9.9" };
+  const b = (i) => s.run("book_appointment", { date: DAY, time: ["09:00", "09:30", "10:00"][i], service_id: "checkup", customer_name: "X", customer_phone: `09100000${10 + i}` }, ctx);
+  assert.equal(b(0).confirmed, true); assert.equal(b(1).confirmed, true); assert.match(b(2).error, /too many upcoming bookings from this sender/);
+  assert.ok(!JSON.stringify(s.bookings).includes("9.9.9.9")); // only a hash is stored
+});
+
+test("a failed disk write rolls memory back: no phantom booking, retry is not a fake duplicate", () => {
+  const dir = mkdtempSync(join(tmpdir(), "rb-")); const file = join(dir, "sub", "b.json"); // directory does not exist -> write fails
+  const s = store(base, { file });
+  const r = book(s);
+  assert.match(r.error, /storage_unavailable/);
+  assert.equal(s.bookings.length, 0);
+  assert.ok(s.run("check_availability", { date: DAY, service_id: "checkup" }).available.includes("10:00"));
+  assert.match(book(s).error, /storage_unavailable/); // still an honest failure, never {duplicate:true}
+  assert.match(s.run("handoff_to_human", { reason: "x", customer_summary: "y" }).error, /storage_unavailable/);
+  assert.equal(s.handoffs.length, 0);
+});
+
+test("retention purge removes old bookings/handoffs on load and on demand, keeps recent ones", () => {
+  const file = join(mkdtempSync(join(tmpdir(), "pg-")), "b.json");
+  writeFileSync(file, JSON.stringify({
+    bookings: [{ id: "old1", date: "2026-05-01", time: "10:00", service_id: "checkup", customer_name: "Old", phone: "1" }, { id: "new1", date: "2026-10-12", time: "10:00", service_id: "checkup", customer_name: "New", phone: "2" }],
+    handoffs: [{ id: "h-old", at: "2026-05-01T00:00:00Z" }, { id: "h-new", at: "2026-10-10T00:00:00Z" }],
+  }));
+  const s = store(base, { file });
+  assert.deepEqual(s.bookings.map((b) => b.id), ["new1"]); assert.deepEqual(s.handoffs.map((h) => h.id), ["h-new"]);
+  assert.deepEqual(JSON.parse(readFileSync(file, "utf8")).bookings.map((b) => b.id), ["new1"]);
+  assert.equal(s.purge(1), 0); // cutoff 2026-10-10: both remaining records are newer
+  const later = createStore(base, { file, now: () => new Date("2026-12-01T00:00:00Z") }); // default retention 90 days keeps them
+  assert.equal(later.bookings.length, 1);
+  assert.equal(later.purge(30), 2); assert.equal(later.bookings.length, 0); assert.equal(later.handoffs.length, 0);
+});
+
+test("handoff keeps channel, wa_id and callback phone so staff can actually follow up", () => {
+  const s = store(cfgWith());
+  s.run("handoff_to_human", { reason: "pain", customer_summary: "x", customer_phone: "0911112222" }, { channel: "whatsapp", sender: "218911112222" });
+  s.run("handoff_to_human", { reason: "refund", customer_summary: "y" }, { channel: "web", sender: "1.2.3.4" });
+  assert.deepEqual([s.handoffs[0].channel, s.handoffs[0].wa_id, s.handoffs[0].customer_phone], ["whatsapp", "218911112222", "218911112222"]);
+  assert.deepEqual([s.handoffs[1].channel, s.handoffs[1].wa_id, s.handoffs[1].customer_phone], ["web", undefined, undefined]);
+});
+
+test("malformed tool input never throws out of run()", () => {
+  const s = store();
+  for (const input of [null, undefined, 5, "x", [], { date: ["2026-10-12"], service_id: {} }, { date: DAY, service_id: "checkup", customer_name: {}, customer_phone: [] }]) {
+    for (const name of ["check_availability", "book_appointment", "handoff_to_human"]) assert.doesNotThrow(() => s.run(name, input), `${name} ${JSON.stringify(input)}`);
+  }
+  assert.ok(s.run("book_appointment", { date: DAY, time: 1000, service_id: "checkup", customer_name: "A", customer_phone: "0910000000" }).error);
+});
+
+test("invalid client config fails at startup with a clear message", () => {
+  assert.throws(() => store(mk({ timezone: "Mars/Base" })), /timezone/);
+  const c = mk(); c.slots.step_min = 0; assert.throws(() => store(c), /step_min/);
+  const d = mk(); d.slots.days_ahead = undefined; assert.throws(() => store(d), /days_ahead/);
+  const e = mk(); e.services = []; assert.throws(() => store(e), /services/);
+});

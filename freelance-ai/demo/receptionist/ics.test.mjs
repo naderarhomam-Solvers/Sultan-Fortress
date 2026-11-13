@@ -25,3 +25,13 @@ test("fold keeps every physical line <= 75 octets, multibyte-safe, and unfolds l
 test("empty calendar is valid", () => {
   assert.match(buildIcs([], config), /BEGIN:VCALENDAR[\s\S]*END:VCALENDAR/);
 });
+
+test("customer text cannot inject ICS properties (CRLF, lone CR, LF)", () => {
+  const evil = { ...b, customer_name: "Ali\r\nATTENDEE:mailto:x@evil.test", customer_phone: "1\rEND:VEVENT\nBEGIN:VEVENT" };
+  const ics = buildIcs([evil], config);
+  const logical = ics.replace(/\r\n /g, "").split("\r\n").filter(Boolean);
+  assert.equal(logical.filter((l) => l.startsWith("BEGIN:VEVENT")).length, 1);
+  assert.ok(!logical.some((l) => l.startsWith("ATTENDEE") || l === "END:VEVENT\\n" ));
+  assert.equal(logical.filter((l) => l === "END:VEVENT").length, 1);
+  assert.ok(!/\r(?!\n)/.test(ics));
+});

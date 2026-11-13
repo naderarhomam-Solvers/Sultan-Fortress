@@ -52,3 +52,13 @@ test("makeSender posts the Graph API request", async () => {
   assert.match(call[0], /\/P\/messages$/); assert.equal(call[1].headers.authorization, "Bearer T");
   assert.equal(JSON.parse(call[1].body).to, "218");
 });
+
+test("staffAlerts: handoff includes callback phone; confirmed booking announced once; duplicates and failures are silent", async () => {
+  const { staffAlerts } = await import("./whatsapp.mjs");
+  const h = [{ tool: "handoff_to_human", input: { reason: "pain", customer_summary: "s", customer_phone: "0911" } }];
+  assert.match(staffAlerts(h, "web")[0], /هاتف: 0911/);
+  const bk = { customer_name: "Ali", service_id: "checkup", date: "2026-10-12", time: "10:00", customer_phone: "0911" };
+  assert.equal(staffAlerts([{ tool: "book_appointment", result: { confirmed: true, booking: bk } }], "x").length, 1);
+  assert.equal(staffAlerts([{ tool: "book_appointment", result: { confirmed: true, duplicate: true, booking: bk } }], "x").length, 0);
+  assert.equal(staffAlerts([{ tool: "book_appointment", result: { error: "slot not available" } }], "x").length, 0);
+});

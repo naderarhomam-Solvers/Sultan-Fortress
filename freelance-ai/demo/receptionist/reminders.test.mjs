@@ -40,3 +40,13 @@ test("loop sends once, marks reminded, counts failures, never overlaps", async (
   await Promise.all([loop.tick(), loop.tick()]); assert.equal(sent.length, 2);
   loop.stop();
 });
+
+test("a failing state write inside the failure path does not crash the loop", async () => {
+  const now = at("2026-10-11T09:00:00Z");
+  const store = { bookings: [mkB()], update() { throw new Error("disk full"); } };
+  const logs = [];
+  const loop = startReminderLoop({ store, config, sendTemplate: async () => { throw new Error("meta down"); }, template: "t", now: () => now, intervalMs: 3_600_000, log: (...a) => logs.push(a.join(" ")) });
+  await assert.doesNotReject(loop.tick());
+  assert.ok(logs.some((l) => l.includes("reminder state not saved")));
+  loop.stop();
+});

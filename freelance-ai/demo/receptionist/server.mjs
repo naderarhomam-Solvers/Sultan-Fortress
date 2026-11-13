@@ -9,7 +9,7 @@ import { createStore, toolDefs, systemPrompt } from "./tools.mjs";
 import { buildIcs } from "./ics.mjs";
 import { startReminderLoop } from "./reminders.mjs";
 import { sanitizeHistory, createLimiter } from "./guards.mjs";
-import { verifySignature, verifyChallenge, makeSender, makeTemplateSender, createWhatsAppHandler } from "./whatsapp.mjs";
+import { verifySignature, verifyChallenge, makeSender, makeTemplateSender, createWhatsAppHandler, staffAlerts } from "./whatsapp.mjs";
 
 const dir = fileURLToPath(new URL(".", import.meta.url));
 const configPath = process.env.CLIENT_CONFIG || join(dir, "clinic.example.json");
@@ -20,6 +20,13 @@ const KEY = process.env.ANTHROPIC_API_KEY;
 export const MODE = KEY ? "claude" : "mock";
 const MAX_TURNS = 6;
 const FALLBACK_REPLY = "عذرًا، حدث خطأ مؤقت. سيتواصل معك أحد موظفينا قريبًا. / Sorry, a temporary error occurred; our staff will contact you.";
+
+/** The model only needs the booking essentials, never stored phone numbers or WhatsApp ids. */
+const forModel = (r) => {
+  if (!r?.booking) return r;
+  const { id, date, time, service_id, customer_name } = r.booking;
+  return { ...r, booking: { id, date, time, service_id, customer_name } };
+};
 
 async function callClaude(messages) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -60,7 +67,7 @@ async function chatInner(history, meta = {}) {
     const results = uses.map((u) => {
       const result = store.run(u.name, u.input, meta);
       trace.push({ tool: u.name, input: u.input, result });
-      return { type: "tool_result", tool_use_id: u.id, content: JSON.stringify(result) };
+      return { type: "tool_result", tool_use_id: u.id, content: JSON.stringify(forModel(result)) };
     });
     messages.push({ role: "user", content: results });
   }
@@ -91,14 +98,10 @@ async function readBody(req, max) {
   return body;
 }
 
-const WA = process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID
-  ? createWhatsAppHandler({
-      chat, limiter,
-      send: makeSender({ token: process.env.WHATSAPP_TOKEN, phoneId: process.env.WHATSAPP_PHONE_ID }),
-      // Staff alerts only work inside WhatsApp's 24h window (staff must have messaged this number) - see docs/DEPLOY.md
-      notifyStaff: process.env.STAFF_WHATSAPP ? makeSender({ token: process.env.WHATSAPP_TOKEN, phoneId: process.env.WHATSAPP_PHONE_ID }).bind(null, process.env.STAFF_WHATSAPP) : undefined,
-    })
-  : null;
+const waSend = process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID ? makeSender({ token: process.env.WHATSAPP_TOKEN, phoneId: process.env.WHATSAPP_PHONE_ID }) : null;
+// Staff alerts only work inside WhatsApp's 24h window (staff must have messaged this number) - see docs/DEPLOY.md
+const notifyStaff = waSend && process.env.STAFF_WHATSAPP ? (text) => waSend(process.env.STAFF_WHATSAPP, text) : undefined;
+const WA = waSend ? createWhatsAppHandler({ chat, limiter, send: waSend, notifyStaff }) : null;
 
 export const server = http.createServer(async (req, res) => {
   try {
@@ -108,7 +111,9 @@ export const server = http.createServer(async (req, res) => {
       const { messages } = JSON.parse(await readBody(req, 50_000));
       const history = sanitizeHistory(messages); // 400 on bad input, before any upstream call
       try {
-        return json(res, 200, await chat(history, { channel: "web", sender: clientIp(req) }));
+        const out = await chat(history, { channel: "web", sender: clientIp(req) });
+        if (notifyStaff) for (const a of staffAlerts(out.trace, "web")) notifyStaff(a).catch((e) => console.error("staff alert failed:", e.message));
+        return json(res, 200, out);
       } catch (e) { // upstream failure/timeout: degrade to a safe human-handoff message instead of a 500
         console.error("chat failed:", e.message);
         return json(res, 200, { reply: FALLBACK_REPLY, trace: [], degraded: true });
@@ -164,5 +169,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     else startReminderLoop({ store, config, template: process.env.REMINDER_TEMPLATE, language: process.env.REMINDER_LANG || "ar",
       hoursBefore: Number(process.env.REMINDER_HOURS) || 24, sendTemplate: makeTemplateSender({ token: process.env.WHATSAPP_TOKEN, phoneId: process.env.WHATSAPP_PHONE_ID }) });
   }
+  setInterval(() => { try { const n = store.purge(); if (n) console.error(`retention: purged ${n} old records`); } catch (e) { console.error("purge failed:", e.message); } }, 24 * 3600_000).unref();
   server.listen(port, () => console.log(`Receptionist demo on http://localhost:${port} (${KEY ? "Claude " + MODEL : "MOCK mode — set ANTHROPIC_API_KEY"})`));
 }

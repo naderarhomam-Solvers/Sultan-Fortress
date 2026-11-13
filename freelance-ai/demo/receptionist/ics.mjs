@@ -2,7 +2,7 @@
 // Calendar apps poll subscribed feeds every few hours - this is NOT real-time.
 import { zonedToUtc } from "./tools.mjs";
 
-const esc = (s) => String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+const esc = (s) => String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
 const stamp = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 
 export function fold(line) { // 75 octets per line; continuation lines start with one space
